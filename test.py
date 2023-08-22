@@ -22,17 +22,12 @@ with tempfile.TemporaryDirectory() as dir_path:
         print(f"// {x} -> {expected}", file=f)
         print(
             """\
-#include <cstring>
-#include <initializer_list>
-#include <algorithm>
-#include <cassert>
 #include <array>
 
 #define INLINE inline __attribute__((always_inline))
 
 template<typename T, int dim>
 using Vector = std::array<T,dim>;
-
         """,
             file=f,
         )
