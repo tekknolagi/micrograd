@@ -138,7 +138,11 @@ PyObject* PyInit_nn() {{
     from distutils.extension import Extension
     from distutils import sysconfig
 
-    ext = Extension(name="nn", sources=[file_path])
+    # TODO(max): Use shlex.split?
+    extra_compile_args = sysconfig.get_config_var('CFLAGS').split()
+    extra_compile_args.append("-march=native")
+    print("args:", extra_compile_args)
+    ext = Extension(name="nn", sources=[file_path], extra_compile_args=extra_compile_args)
     setup(
         name="nn",
         ext_modules=[ext],
