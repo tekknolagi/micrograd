@@ -39,123 +39,123 @@ class Vector {
   T arr[dim];
 };
 
-double Neuron_0x7f1265b4fb50(Vector<double, 2> input) {
+double Neuron_0(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.23550571390294128, 0.06653114721000164};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4d9f0(Vector<double, 2> input) {
+double Neuron_1(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.26830328150124894, 0.1715747078045431};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4dc90(Vector<double, 2> input) {
+double Neuron_2(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.6686254326224383, 0.6487474938152629};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4de40(Vector<double, 2> input) {
+double Neuron_3(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.23259038277158273, 0.5792256498313748};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4dfc0(Vector<double, 2> input) {
+double Neuron_4(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.8434530197925192, -0.3847332240409951};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4e140(Vector<double, 2> input) {
+double Neuron_5(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.9844941451716409, -0.5901079958448365};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4e2c0(Vector<double, 2> input) {
+double Neuron_6(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.31255526637777775, 0.8246106857787521};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4e440(Vector<double, 2> input) {
+double Neuron_7(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.7814232047574572, 0.6408752595662697};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4e6b0(Vector<double, 2> input) {
+double Neuron_8(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.20252189189007108, -0.8693137391598071};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4e770(Vector<double, 2> input) {
+double Neuron_9(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.39841666323128555, -0.3037961142013801};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4ea10(Vector<double, 2> input) {
+double Neuron_10(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.19282493884310759, 0.6032250931493106};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4ea40(Vector<double, 2> input) {
+double Neuron_11(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.6001302646227185, 0.32749776568749045};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4f490(Vector<double, 2> input) {
+double Neuron_12(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.6650130652363544, 0.1889136153241595};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4f310(Vector<double, 2> input) {
+double Neuron_13(Vector<double, 2> input) {
   Vector<double, 2> weights = {-0.07813264062433589, 0.9151267732861252};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4f190(Vector<double, 2> input) {
+double Neuron_14(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.5914405264235476, -0.3725442040076463};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4f010(Vector<double, 2> input) {
+double Neuron_15(Vector<double, 2> input) {
   Vector<double, 2> weights = {0.3810827422406471, 0.8301999957053683};
   double result = weights.dot(input).sum() + 0;
   result = std::max(result, double{0});
   return result;
 }
-Vector<double, 16> Layer_0x7f1273576cb0(Vector<double, 2> input) {
+Vector<double, 16> Layer_16(Vector<double, 2> input) {
   Vector<double, 16> result;
-  result.at(0) = Neuron_0x7f1265b4fb50(input);
-  result.at(1) = Neuron_0x7f1265b4d9f0(input);
-  result.at(2) = Neuron_0x7f1265b4dc90(input);
-  result.at(3) = Neuron_0x7f1265b4de40(input);
-  result.at(4) = Neuron_0x7f1265b4dfc0(input);
-  result.at(5) = Neuron_0x7f1265b4e140(input);
-  result.at(6) = Neuron_0x7f1265b4e2c0(input);
-  result.at(7) = Neuron_0x7f1265b4e440(input);
-  result.at(8) = Neuron_0x7f1265b4e6b0(input);
-  result.at(9) = Neuron_0x7f1265b4e770(input);
-  result.at(10) = Neuron_0x7f1265b4ea10(input);
-  result.at(11) = Neuron_0x7f1265b4ea40(input);
-  result.at(12) = Neuron_0x7f1265b4f490(input);
-  result.at(13) = Neuron_0x7f1265b4f310(input);
-  result.at(14) = Neuron_0x7f1265b4f190(input);
-  result.at(15) = Neuron_0x7f1265b4f010(input);
+  result.at(0) = Neuron_0(input);
+  result.at(1) = Neuron_1(input);
+  result.at(2) = Neuron_2(input);
+  result.at(3) = Neuron_3(input);
+  result.at(4) = Neuron_4(input);
+  result.at(5) = Neuron_5(input);
+  result.at(6) = Neuron_6(input);
+  result.at(7) = Neuron_7(input);
+  result.at(8) = Neuron_8(input);
+  result.at(9) = Neuron_9(input);
+  result.at(10) = Neuron_10(input);
+  result.at(11) = Neuron_11(input);
+  result.at(12) = Neuron_12(input);
+  result.at(13) = Neuron_13(input);
+  result.at(14) = Neuron_14(input);
+  result.at(15) = Neuron_15(input);
   return result;
 }
-double Neuron_0x7f1265b4ee60(Vector<double, 16> input) {
+double Neuron_17(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.08568482691922008, -0.4702876239420326, -0.598037011209763,
       -0.8653994554527067,  0.05088685407468296, 0.23734644010332318,
@@ -167,7 +167,7 @@ double Neuron_0x7f1265b4ee60(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4d180(Vector<double, 16> input) {
+double Neuron_18(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.833061635489087,   0.5964776511293395,  -0.37143418174288434,
       0.5908148577342738,  0.22158648570764017, -0.1356625769718156,
@@ -179,7 +179,7 @@ double Neuron_0x7f1265b4d180(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4cac0(Vector<double, 16> input) {
+double Neuron_19(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.5506426045691593,  -0.8991315551643992,   -0.01068087363780501,
       0.47299771880745967, -0.08962899486130538,  0.797578856715021,
@@ -191,7 +191,7 @@ double Neuron_0x7f1265b4cac0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4c400(Vector<double, 16> input) {
+double Neuron_20(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.8822004511411428, -0.6597694707506181, 0.6399602752689382,
       -0.6162690156778836, 0.9053331545059524,  0.667051974729419,
@@ -203,7 +203,7 @@ double Neuron_0x7f1265b4c400(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b49b40(Vector<double, 16> input) {
+double Neuron_21(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.3053994271093132, -0.8631814836201597,  -0.29515687142070823,
       0.35372633701181444, 0.20192101990676137,  0.43475517949093345,
@@ -215,7 +215,7 @@ double Neuron_0x7f1265b49b40(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4a3b0(Vector<double, 16> input) {
+double Neuron_22(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.24979744746643195,  -0.16494497754636983, -0.6818144661499881,
       -0.06157981422579417, 0.3953098897513252,   -0.3566554480884392,
@@ -227,7 +227,7 @@ double Neuron_0x7f1265b4a3b0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4bbb0(Vector<double, 16> input) {
+double Neuron_23(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.11986910432370723, -0.2418861692296186,  0.27309902578900536,
       -0.7118613477995166,  0.640699986750376,    0.5251887402876205,
@@ -239,7 +239,7 @@ double Neuron_0x7f1265b4bbb0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4b4f0(Vector<double, 16> input) {
+double Neuron_24(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.7209187740512764,  0.7176790825016579,  0.008555182533857453,
       -0.24243019229834561, 0.27898488110769337, -0.7726321568042522,
@@ -251,7 +251,7 @@ double Neuron_0x7f1265b4b4f0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4ae30(Vector<double, 16> input) {
+double Neuron_25(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.01164370432983386, 0.18191594886177542,   0.28846645419632666,
       0.28220903218440285, -0.007467712517625236, -0.9683122463720533,
@@ -263,7 +263,7 @@ double Neuron_0x7f1265b4ae30(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b4a770(Vector<double, 16> input) {
+double Neuron_26(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.5036443505111738,   0.2955698675260916,   0.4217229281756927,
       0.5984472102024547,   -0.07808249126985456, 0.6103717000192679,
@@ -275,7 +275,7 @@ double Neuron_0x7f1265b4a770(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b495a0(Vector<double, 16> input) {
+double Neuron_27(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.7177690445444254,  -0.686154027517816,  -0.6063064618924185,
       -0.843421963461304,  0.10008562568600432, 0.8240605653030353,
@@ -287,7 +287,7 @@ double Neuron_0x7f1265b495a0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b48ee0(Vector<double, 16> input) {
+double Neuron_28(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.8524536182338882, 0.6964865423661555,   0.32268922233815234,
       -0.2781907279339124, 0.16059637633929102,  -0.9446155428863412,
@@ -299,7 +299,7 @@ double Neuron_0x7f1265b48ee0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b48820(Vector<double, 16> input) {
+double Neuron_29(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.4258729196203048, 0.3790360826044181,   -0.9859455101873194,
       0.7028423162448694,  -0.40122067203805645, -0.25683960260938843,
@@ -311,7 +311,7 @@ double Neuron_0x7f1265b48820(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b21f60(Vector<double, 16> input) {
+double Neuron_30(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       -0.652542799532154,  -0.0065261577446391605, 0.3493423738090866,
       -0.6324860574376863, -0.8530409123740017,    -0.6218486564139833,
@@ -323,7 +323,7 @@ double Neuron_0x7f1265b21f60(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b23ee0(Vector<double, 16> input) {
+double Neuron_31(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.9196221821038293,  0.045865737597233114, 0.5127293960073278,
       -0.7914104355296121, 0.848793948186239,    -0.3571964013350297,
@@ -335,7 +335,7 @@ double Neuron_0x7f1265b23ee0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-double Neuron_0x7f1265b236a0(Vector<double, 16> input) {
+double Neuron_32(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.077052593637436,   0.3936052761946094,   -0.8761639684113867,
       0.37877479983298445, -0.20339223773668702, -0.9231467276681604,
@@ -347,27 +347,27 @@ double Neuron_0x7f1265b236a0(Vector<double, 16> input) {
   result = std::max(result, double{0});
   return result;
 }
-Vector<double, 16> Layer_0x7f1265b4ff70(Vector<double, 16> input) {
+Vector<double, 16> Layer_33(Vector<double, 16> input) {
   Vector<double, 16> result;
-  result.at(0) = Neuron_0x7f1265b4ee60(input);
-  result.at(1) = Neuron_0x7f1265b4d180(input);
-  result.at(2) = Neuron_0x7f1265b4cac0(input);
-  result.at(3) = Neuron_0x7f1265b4c400(input);
-  result.at(4) = Neuron_0x7f1265b49b40(input);
-  result.at(5) = Neuron_0x7f1265b4a3b0(input);
-  result.at(6) = Neuron_0x7f1265b4bbb0(input);
-  result.at(7) = Neuron_0x7f1265b4b4f0(input);
-  result.at(8) = Neuron_0x7f1265b4ae30(input);
-  result.at(9) = Neuron_0x7f1265b4a770(input);
-  result.at(10) = Neuron_0x7f1265b495a0(input);
-  result.at(11) = Neuron_0x7f1265b48ee0(input);
-  result.at(12) = Neuron_0x7f1265b48820(input);
-  result.at(13) = Neuron_0x7f1265b21f60(input);
-  result.at(14) = Neuron_0x7f1265b23ee0(input);
-  result.at(15) = Neuron_0x7f1265b236a0(input);
+  result.at(0) = Neuron_17(input);
+  result.at(1) = Neuron_18(input);
+  result.at(2) = Neuron_19(input);
+  result.at(3) = Neuron_20(input);
+  result.at(4) = Neuron_21(input);
+  result.at(5) = Neuron_22(input);
+  result.at(6) = Neuron_23(input);
+  result.at(7) = Neuron_24(input);
+  result.at(8) = Neuron_25(input);
+  result.at(9) = Neuron_26(input);
+  result.at(10) = Neuron_27(input);
+  result.at(11) = Neuron_28(input);
+  result.at(12) = Neuron_29(input);
+  result.at(13) = Neuron_30(input);
+  result.at(14) = Neuron_31(input);
+  result.at(15) = Neuron_32(input);
   return result;
 }
-double Neuron_0x7f1265b22e00(Vector<double, 16> input) {
+double Neuron_34(Vector<double, 16> input) {
   Vector<double, 16> weights = {
       0.9128783824023976,  -0.820982404658368,  0.9648285595338895,
       0.3470665940198512,  0.5436156893249604,  0.49097996014038525,
@@ -378,14 +378,14 @@ double Neuron_0x7f1265b22e00(Vector<double, 16> input) {
   double result = weights.dot(input).sum() + 0;
   return result;
 }
-Vector<double, 1> Layer_0x7f1265b4fd30(Vector<double, 16> input) {
+Vector<double, 1> Layer_35(Vector<double, 16> input) {
   Vector<double, 1> result;
-  result.at(0) = Neuron_0x7f1265b22e00(input);
+  result.at(0) = Neuron_34(input);
   return result;
 }
-Vector<double, 1> MLP_0x7f12735affd0(Vector<double, 2> input) {
-  Vector<double, 16> result0 = Layer_0x7f1273576cb0(input);
-  Vector<double, 16> result1 = Layer_0x7f1265b4ff70(result0);
-  Vector<double, 1> result2 = Layer_0x7f1265b4fd30(result1);
+Vector<double, 1> MLP_36(Vector<double, 2> input) {
+  Vector<double, 16> result0 = Layer_16(input);
+  Vector<double, 16> result1 = Layer_33(result0);
+  Vector<double, 1> result2 = Layer_35(result1);
   return result2;
 }
