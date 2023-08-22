@@ -33,12 +33,6 @@ with tempfile.TemporaryDirectory() as dir_path:
 template <typename T = double, int dim = 1>
 class Vector {
  public:
-  INLINE Vector<T, dim>() { arr.fill(0); }
-  INLINE Vector<T, dim>(T other[dim]) {
-    for (int i = 0; i < dim; i++) {
-      arr[i] = other[i];
-    }
-  }
   INLINE T& at(int idx) { return arr[idx]; }
   INLINE const T& at(int idx) const { return arr[idx]; }
 
