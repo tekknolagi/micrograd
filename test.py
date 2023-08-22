@@ -48,5 +48,37 @@ class Vector {
 };
 """)
 print("\n".join(n.compile()))
+print(f"""
+#include <Python.h>
+
+
+static PyMethodDef nn_methods[] = {{
+      {{ "{n.func_name()}", {n.func_name()}, METH_OBJECT, "doc" }},
+      {{ nullptr, nullptr }},
+}};
+
+// clang-format off
+static struct PyModuleDef nnmodule = {{
+    PyModuleDef_HEAD_INIT,
+    "nn",
+    "doc",
+    -1,
+    nn_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+}};
+// clang-format on
+
+PyObject* PyInit_nn() {{
+    // TODO(max): Find first?
+    PyObject* m = PyModule_Create(&nnmodule);
+    if (m == NULL) {{
+        return NULL;
+    }}
+    return m;
+}}
+""")
 # y = n(x)
 # print(y, n)

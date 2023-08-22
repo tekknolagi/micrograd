@@ -385,3 +385,33 @@ double MLP_36(Vector<double, 2> input) {
   double result2 = Layer_35(result1);
   return result2;
 }
+
+#include <Python.h>
+
+static PyMethodDef nn_methods[] = {
+    {"MLP_36", MLP_36, METH_OBJECT, "doc"},
+    {nullptr, nullptr},
+};
+
+// clang-format off
+static struct PyModuleDef nnmodule = {
+    PyModuleDef_HEAD_INIT,
+    "nn",
+    "doc",
+    -1,
+    nn_methods,
+    NULL,
+    NULL,
+    NULL,
+    NULL
+};
+// clang-format on
+
+PyObject* PyInit_nn() {
+  // TODO(max): Find first?
+  PyObject* m = PyModule_Create(&nnmodule);
+  if (m == NULL) {
+    return NULL;
+  }
+  return m;
+}
