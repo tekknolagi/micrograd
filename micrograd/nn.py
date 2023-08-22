@@ -26,14 +26,10 @@ class Neuron(Module):
         act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
         return act.relu() if self.nonlin else act
 
-    def sig(self):
-        nin = len(self.w)
-        return f"double {self.func_name()}(Vector<double, {nin}> input)"
-
     def compile(self):
         result = [
-                self.sig() + " {",
-                ]
+            f"double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
+        ]
         weights = ", ".join(str(wi.data) for wi in self.w)
         result.append(f"Vector<double, {len(self.w)}> weights = {{ {weights} }};")
         result.append(f"double result = weights.dot(input).sum() + {self.b.data};")
@@ -99,13 +95,13 @@ class MLP(Module):
         for layer in self.layers:
             result += layer.compile()
         result.append(
-            f"Vector<double, {self.nouts[-1]}> {self.func_name()}(Vector<double, {self.nin}> input)"
+            f"Vector<double, {self.nouts[-1]}> {self.func_name()}(Vector<double, {self.nin}> input) {{"
         )
-        result.append("{")
         for idx, layer in enumerate(self.layers):
             inp = "input" if idx == 0 else f"result{idx-1}"
-            result.append(f"Vector<double, {layer.nout}> result{idx} = {layer.func_name()}({inp});")
-        result.append(f"return result{len(self.layers)-1};")
+            output = f"result{idx}"
+            result.append(f"Vector<double, {layer.nout}> {output} = {layer.func_name()}({inp});")
+        result.append(f"return {output};")
         result.append("}")
         return result
 
