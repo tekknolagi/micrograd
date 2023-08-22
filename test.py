@@ -39,13 +39,6 @@ class Vector {
       arr[i] = other[i];
     }
   }
-  INLINE T sum() const {
-    T result = 0;
-    for (int i = 0; i < dim; i++) {
-      result += arr[i];
-    }
-    return result;
-  }
   INLINE T& at(int idx) { return arr[idx]; }
   INLINE const T& at(int idx) const { return arr[idx]; }
 
