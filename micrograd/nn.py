@@ -36,11 +36,10 @@ class Neuron(Module):
         result.append(
             f"INLINE double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
         )
-        nin = len(self.w)
         result.append(
             "double result = "
             + " + ".join(
-                f"{wi.data}*input.at({xi})" for wi, xi in zip(self.w, range(nin))
+                f"{wi.data}*input.at({xi})" for xi, wi in enumerate(self.w)
             )
             + f" + {self.b.data};"
         )
