@@ -143,5 +143,5 @@ PyObject* PyInit_nn() {{
     shutil.copyfile(f.name, "nn.cpp")
     shutil.copyfile(lib_file, "nn.so")
     # assert expected.data == actual, f"expected {expected} but got {actual} (diff {expected.data-actual})"
-    print(f"Karpathy's micrograd produces: {expected.data}")
-    print(f"Bernstein's compiled micrograd produces: {actual}")
+    print(f"Karpathy's micrograd produces : {expected.data}")
+    print(f"Bernstein's micrograd produces: {actual}")
