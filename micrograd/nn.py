@@ -34,7 +34,7 @@ class Neuron(Module):
     def compile(self):
         result = []
         result.append(
-            f"INLINE double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
+            f"INLINE double {self.func_name()}(const Vector<double, {len(self.w)}>& input) {{",
         )
         result.append(
             "double result = "
@@ -81,7 +81,7 @@ class Layer(Module):
         for n in self.neurons:
             result += n.compile()
         result += [
-            f"{self.output_type()} {self.func_name()}(Vector<double, {self.nin}> input) {{",
+            f"{self.output_type()} {self.func_name()}(const Vector<double, {self.nin}>& input) {{",
         ]
         if self.nout == 1:
             result.append(f"return {self.neurons[0].func_name()}(input);")
@@ -121,7 +121,7 @@ class MLP(Module):
         for layer in self.layers:
             result += layer.compile()
         result.append(
-            f"{self.layers[-1].output_type()} {self.func_name()}(Vector<double, {self.nin}> input) {{"
+            f"{self.layers[-1].output_type()} {self.func_name()}(const Vector<double, {self.nin}>& input) {{"
         )
         for idx, layer in enumerate(self.layers):
             inp = "input" if idx == 0 else f"result{idx-1}"
