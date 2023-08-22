@@ -5,7 +5,7 @@ from micrograd.engine import Value
 random.seed(1337)
 n = nn.MLP(2, [16, 16, 1])
 x = [Value(i) for i in range(2)]
-print("//", n(x))
+print(f"// {x} -> {n(x)}")
 print("""\
 #include <cstring>
 #include <initializer_list>
@@ -30,7 +30,7 @@ class Vector {
   Vector<T, dim> dot(Vector<T, dim> other) {
     T result[dim];
     for (int i = 0; i < dim; i++) {
-      arr[i] = other.arr[i];
+      result[i] = arr[i] * other.arr[i];
     }
     return result;
   }

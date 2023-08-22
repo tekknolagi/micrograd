@@ -1,3 +1,4 @@
+// [Value(data=0, grad=0), Value(data=1, grad=0)] ->
 // Value(data=-0.8197584768678694, grad=0)
 #include <algorithm>
 #include <cassert>
@@ -22,7 +23,7 @@ class Vector {
   Vector<T, dim> dot(Vector<T, dim> other) {
     T result[dim];
     for (int i = 0; i < dim; i++) {
-      arr[i] = other.arr[i];
+      result[i] = arr[i] * other.arr[i];
     }
     return result;
   }
