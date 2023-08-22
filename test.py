@@ -39,12 +39,6 @@ class Vector {
       arr[i] = other[i];
     }
   }
-  INLINE Vector<T, dim>(std::initializer_list<T> other) {
-    assert(other.size() == dim && "oh no");
-    for (int i = 0; i < dim; i++) {
-      arr[i] = other.begin()[i];
-    }
-  }
   INLINE T sum() const {
     T result = 0;
     for (int i = 0; i < dim; i++) {
