@@ -30,15 +30,9 @@ with tempfile.TemporaryDirectory() as dir_path:
 
 #define INLINE inline __attribute__((always_inline))
 
-template <typename T = double, int dim = 1>
-class Vector {
- public:
-  INLINE T& at(int idx) { return arr[idx]; }
-  INLINE const T& at(int idx) const { return arr[idx]; }
+template<typename T, int dim>
+using Vector = std::array<T,dim>;
 
- private:
-  std::array<T, dim> arr;
-};
         """,
             file=f,
         )
