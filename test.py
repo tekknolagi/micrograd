@@ -5,16 +5,29 @@ from micrograd.engine import Value
 random.seed(1337)
 n = nn.MLP(2, [16, 16, 1])
 x = [Value(i) for i in range(16)]
-print("""
+print(n(x))
+print("""\
+#include <cstring>
+#include <initializer_list>
+#include <algorithm>
+
 template <typename T = double, int dim = 1>
 class Vector {
  public:
+  Vector<T, dim>() {
+    std::memset(arr, 0);
+  }
   Vector<T, dim>(T other[dim]) {
     for (int i = 0; i < dim; i++) {
       arr[i] = other[i];
     }
   }
-
+  Vector<T, dim>(std::initializer_list<T> other) {
+    static_assert(other.size() == dim, "oh no");
+    for (int i = 0; i < dim; i++) {
+      arr[i] = other[i];
+    }
+  }
   Vector<T, dim> dot(Vector<T, dim> other) {
     T result[dim];
     for (int i = 0; i < dim; i++) {
@@ -22,7 +35,6 @@ class Vector {
     }
     return result;
   }
-
   T sum() {
     T result = 0;
     for (int i = 0; i < dim; i++) {
@@ -30,7 +42,6 @@ class Vector {
     }
     return result;
   }
-
   T& at(int idx) { return arr[idx]; }
 
  private:

@@ -22,26 +22,24 @@ class Neuron(Module):
         self.nonlin = nonlin
 
     def __call__(self, x):
+        assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
         act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
         return act.relu() if self.nonlin else act
 
-    def sig(self, params):
-        return f"double {self.func_name()}(Vector<double, {len(params)}> input)"
+    def sig(self):
+        nin = len(self.w)
+        return f"double {self.func_name()}(Vector<double, {nin}> input)"
 
-    def compile(self, x):
+    def compile(self):
         result = [
-                self.sig(x) + " {",
-                "double result = 0;",
+                self.sig() + " {",
                 ]
         weights = ", ".join(str(wi.data) for wi in self.w)
         result.append(f"Vector<double, {len(self.w)}> weights = {{ {weights} }};")
         result.append(f"double result = weights.dot(input).sum() + {self.b.data};")
-        # for idx, (wi, xi) in enumerate(zip(self.w, x)):
-        #     result.append(f"result += {wi.data}*input.at({idx});")
-        # result.append(f"result += {self.b.data};")
         if self.nonlin:
             # relu
-            result.append("result = std::max(result, 0);")
+            result.append("result = std::max(result, double{0});")
         result.append("return result;")
         result.append("}")
         return result
@@ -68,11 +66,11 @@ class Layer(Module):
     def compile(self, x):
         result = []
         for n in self.neurons:
-            result += n.compile(x)
+            result += n.compile()
         dim = len(self.neurons)
         result += [
                 self.sig(x) + " {",
-                f"Vector<double, {dim}> result[{dim}];",
+                f"Vector<double, {dim}> result;",
                 ]
         for idx, n in enumerate(self.neurons):
             result.append(f"result.at({idx}) = {n.func_name()}(input);")
