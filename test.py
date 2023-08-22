@@ -72,13 +72,10 @@ static struct PyModuleDef nnmodule = {{
 // clang-format on
 
 PyObject* PyInit_nn() {{
-    // TODO(max): Find first?
-    PyObject* m = PyModule_Create(&nnmodule);
-    if (m == NULL) {{
-        return NULL;
+    PyObject* m = PyState_FindModule(&nnmodule);
+    if (m != NULL) {{
+        return m;
     }}
-    return m;
+    return PyModule_Create(&nnmodule);
 }}
 """)
-# y = n(x)
-# print(y, n)
