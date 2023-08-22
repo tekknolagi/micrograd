@@ -36,7 +36,7 @@ class Neuron(Module):
         weights = ", ".join(str(wi.data) for wi in self.w)
         result.append(f"static const Vector<double, {len(self.w)}> {self.func_name()}_weights = {{ {weights} }};")
         result.append(
-            f"double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
+            f"INLINE double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
         )
         result.append(f"double result = {self.func_name()}_weights.dot(input).sum() + {self.b.data};")
         if self.nonlin:
