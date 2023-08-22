@@ -54,24 +54,21 @@ class Layer(Module):
 
     def __init__(self, nin, nout, **kwargs):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
+        self.nin = nin
+        self.nout = nout
 
     def __call__(self, x):
         out = [n(x) for n in self.neurons]
         return out[0] if len(out) == 1 else out
 
-    def sig(self, params):
-        dim = len(self.neurons)
-        return f"Vector<double, {dim}> {self.func_name()}(Vector<double, {len(params)}> input)"
-
-    def compile(self, x):
+    def compile(self):
         result = []
         for n in self.neurons:
             result += n.compile()
-        dim = len(self.neurons)
         result += [
-                self.sig(x) + " {",
-                f"Vector<double, {dim}> result;",
-                ]
+            f"Vector<double, {self.nout}> {self.func_name()}(Vector<double, {self.nin}> input) {{",
+            f"Vector<double, {self.nout}> result;",
+        ]
         for idx, n in enumerate(self.neurons):
             result.append(f"result.at({idx}) = {n.func_name()}(input);")
         result.append("return result;")
@@ -89,29 +86,25 @@ class MLP(Module):
     def __init__(self, nin, nouts):
         sz = [nin] + nouts
         self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
+        self.nin = nin
+        self.nouts = nouts
 
     def __call__(self, x):
         for layer in self.layers:
             x = layer(x)
         return x
 
-    def sig(self, params):
-        dim_in = len(self.layers[0].neurons)
-        dim_out = len(self.layers[-1].neurons)
-        return f"Vector<double, {dim_out}> {self.func_name()}(Vector<double, {dim_in}> input)"
-
-    def compile(self, x):
+    def compile(self):
         result = []
         for layer in self.layers:
-            result += layer.compile(x)
-        result += [
-                self.sig(x) + " {",
-                ]
+            result += layer.compile()
+        result.append(
+            f"Vector<double, {self.nouts[-1]}> {self.func_name()}(Vector<double, {self.nin}> input)"
+        )
+        result.append("{")
         for idx, layer in enumerate(self.layers):
-            dim_out = len(layer.neurons)
             inp = "input" if idx == 0 else f"result{idx-1}"
-            result.append(f"Vector<double, {dim_out}> result{idx} = {layer.func_name()}({inp});")
-        dim_out = len(self.layers[-1].neurons)
+            result.append(f"Vector<double, {layer.nout}> result{idx} = {layer.func_name()}({inp});")
         result.append(f"return result{len(self.layers)-1};")
         result.append("}")
         return result
