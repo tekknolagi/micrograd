@@ -51,9 +51,27 @@ print("\n".join(n.compile()))
 print(f"""
 #include <Python.h>
 
+extern "C" {{
+PyObject* nn_wrapper(PyObject* obj) {{
+      if (!PyList_CheckExact(obj)) {{
+            PyErr_Format(PyExc_TypeError, "expected list");
+            return nullptr;
+      }}
+      if (PyList_Size(obj) != {n.nin}) {{
+            PyErr_Format(PyExc_TypeError, "expected list of size {n.nin}");
+            return nullptr;
+      }}
+      Vector<double, {n.nin}> input;
+      for (int i = 0; i < {n.nin}; i++) {{
+        inputs.at(i) = PyList_GetItem(obj, i);
+      }}
+      // TODO(max): Make this able to return multiple outputs?
+      double result = {n.func_name()}(input);
+      return PyFloat_FromDouble(result);
+}}
 
 static PyMethodDef nn_methods[] = {{
-      {{ "{n.func_name()}", {n.func_name()}, METH_OBJECT, "doc" }},
+      {{ "nn", nn_wrapper, METH_OBJECT, "doc" }},
       {{ nullptr, nullptr }},
 }};
 
@@ -77,5 +95,6 @@ PyObject* PyInit_nn() {{
         return m;
     }}
     return PyModule_Create(&nnmodule);
+}}
 }}
 """)

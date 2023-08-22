@@ -388,8 +388,27 @@ double MLP_36(Vector<double, 2> input) {
 
 #include <Python.h>
 
+extern "C" {
+PyObject* nn_wrapper(PyObject* obj) {
+  if (!PyList_CheckExact(obj)) {
+    PyErr_Format(PyExc_TypeError, "expected list");
+    return nullptr;
+  }
+  if (PyList_Size(obj) != 2) {
+    PyErr_Format(PyExc_TypeError, "expected list of size 2");
+    return nullptr;
+  }
+  Vector<double, 2> input;
+  for (int i = 0; i < 2; i++) {
+    inputs.at(i) = PyList_GetItem(obj, i);
+  }
+  // TODO(max): Make this able to return multiple outputs?
+  double result = MLP_36(input);
+  return PyFloat_FromDouble(result);
+}
+
 static PyMethodDef nn_methods[] = {
-    {"MLP_36", MLP_36, METH_OBJECT, "doc"},
+    {"nn", nn_wrapper, METH_OBJECT, "doc"},
     {nullptr, nullptr},
 };
 
@@ -413,4 +432,5 @@ PyObject* PyInit_nn() {
     return m;
   }
   return PyModule_Create(&nnmodule);
+}
 }
