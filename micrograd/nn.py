@@ -32,12 +32,13 @@ class Neuron(Module):
         return act.relu() if self.nonlin else act
 
     def compile(self):
-        result = [
-            f"double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
-        ]
+        result = []
         weights = ", ".join(str(wi.data) for wi in self.w)
-        result.append(f"Vector<double, {len(self.w)}> weights = {{ {weights} }};")
-        result.append(f"double result = weights.dot(input).sum() + {self.b.data};")
+        result.append(f"static const Vector<double, {len(self.w)}> {self.func_name()}_weights = {{ {weights} }};")
+        result.append(
+            f"double {self.func_name()}(Vector<double, {len(self.w)}> input) {{",
+        )
+        result.append(f"double result = {self.func_name()}_weights.dot(input).sum() + {self.b.data};")
         if self.nonlin:
             # relu
             result.append("result = std::max(result, double{0});")
