@@ -378,14 +378,10 @@ double Neuron_34(Vector<double, 16> input) {
   double result = weights.dot(input).sum() + 0;
   return result;
 }
-Vector<double, 1> Layer_35(Vector<double, 16> input) {
-  Vector<double, 1> result;
-  result.at(0) = Neuron_34(input);
-  return result;
-}
-Vector<double, 1> MLP_36(Vector<double, 2> input) {
+double Layer_35(Vector<double, 16> input) { return Neuron_34(input); }
+double MLP_36(Vector<double, 2> input) {
   Vector<double, 16> result0 = Layer_16(input);
   Vector<double, 16> result1 = Layer_33(result0);
-  Vector<double, 1> result2 = Layer_35(result1);
+  double result2 = Layer_35(result1);
   return result2;
 }

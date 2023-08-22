@@ -65,14 +65,24 @@ class Layer(Module):
         out = [n(x) for n in self.neurons]
         return out[0] if len(out) == 1 else out
 
+    def output_type(self):
+        if self.nout == 1:
+            return "double"
+        else:
+            return f"Vector<double, {self.nout}>"
+
     def compile(self):
         result = []
         for n in self.neurons:
             result += n.compile()
         result += [
-            f"Vector<double, {self.nout}> {self.func_name()}(Vector<double, {self.nin}> input) {{",
-            f"Vector<double, {self.nout}> result;",
+            f"{self.output_type()} {self.func_name()}(Vector<double, {self.nin}> input) {{",
         ]
+        if self.nout == 1:
+            result.append(f"return {self.neurons[0].func_name()}(input);")
+            result.append("}")
+            return result
+        result.append(f"{self.output_type()} result;")
         for idx, n in enumerate(self.neurons):
             result.append(f"result.at({idx}) = {n.func_name()}(input);")
         result.append("return result;")
@@ -106,12 +116,12 @@ class MLP(Module):
         for layer in self.layers:
             result += layer.compile()
         result.append(
-            f"Vector<double, {self.nouts[-1]}> {self.func_name()}(Vector<double, {self.nin}> input) {{"
+            f"{self.layers[-1].output_type()} {self.func_name()}(Vector<double, {self.nin}> input) {{"
         )
         for idx, layer in enumerate(self.layers):
             inp = "input" if idx == 0 else f"result{idx-1}"
             output = f"result{idx}"
-            result.append(f"Vector<double, {layer.nout}> {output} = {layer.func_name()}({inp});")
+            result.append(f"{layer.output_type()} {output} = {layer.func_name()}({inp});")
         result.append(f"return {output};")
         result.append("}")
         return result
