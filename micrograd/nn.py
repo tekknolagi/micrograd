@@ -32,13 +32,18 @@ class Neuron(Module):
 
     def compile(self):
         result = []
+        # Initial values
+        weights = ", ".join(str(wi.data) for wi in self.w)
         result.append(
-            f"INLINE double {self.func_name()}(const Vector<double, {len(self.w)}>& input) {{",
+            f"double {self.func_name()}_weights[{len(self.w)}] = {{ {weights} }};"
+        )
+        result.append(
+            f"double {self.func_name()}(const Vector<double, {len(self.w)}>& input) {{",
         )
         result.append(
             "double result = "
             + " + ".join(
-                f"{wi.data}*input.at({xi})" for xi, wi in enumerate(self.w)
+                f"{self.func_name()}_weights[{xi}]*input.at({xi})" for xi, wi in enumerate(self.w)
             )
             + f" + {self.b.data};"
         )
