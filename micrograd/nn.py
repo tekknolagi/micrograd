@@ -40,13 +40,12 @@ class Neuron(Module):
         result.append(
             f"double {self.func_name()}(const Vector<double, {len(self.w)}>& input) {{",
         )
-        result.append(
-            "double result = "
-            + " + ".join(
-                f"{self.func_name()}_weights[{xi}]*input.at({xi})" for xi, wi in enumerate(self.w)
-            )
-            + f" + {self.b.data};"
-        )
+        result.append(f"""
+double result = std::inner_product(
+                      std::begin({self.func_name()}_weights),
+                      std::end({self.func_name()}_weights),
+                      std::begin(input),
+                      0.0);""")
         if self.nonlin:
             # relu
             result.append("result = std::max(result, double{0});")

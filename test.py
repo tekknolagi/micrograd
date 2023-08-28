@@ -23,6 +23,7 @@ with tempfile.TemporaryDirectory() as dir_path:
         print(
             """\
 #include <array>
+#include <numeric>
 
 #define INLINE inline __attribute__((always_inline))
 
