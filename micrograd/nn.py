@@ -1,7 +1,8 @@
+import itertools
 import random
 from micrograd.engine import Value
 
-counter = 0
+COUNTER = itertools.count()
 
 class Module:
 
@@ -22,9 +23,7 @@ class Neuron(Module):
         self.w = [Value(random.uniform(-1,1), (), 'weight') for _ in range(nin)]
         self.b = Value(0, (), 'bias')
         self.nonlin = nonlin
-        global counter
-        self.id = counter
-        counter += 1
+        self.id = next(COUNTER)
 
     def __call__(self, x):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
@@ -62,9 +61,7 @@ class Layer(Module):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
         self.nin = nin
         self.nout = nout
-        global counter
-        self.id = counter
-        counter += 1
+        self.id = next(COUNTER)
 
     def __call__(self, x):
         out = [n(x) for n in self.neurons]
@@ -107,9 +104,7 @@ class MLP(Module):
         self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
         self.nin = nin
         self.nouts = nouts
-        global counter
-        self.id = counter
-        counter += 1
+        self.id = next(COUNTER)
 
     def __call__(self, x):
         for layer in self.layers:
