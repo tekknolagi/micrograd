@@ -7,7 +7,7 @@ class Value:
         self.grad = 0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
-        self._prev = set(_children)
+        self._prev = _children  # set(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
     def __add__(self, other):
@@ -42,6 +42,17 @@ class Value:
 
         return out
 
+    def __eq__(self, other):
+        if isinstance(other, (int, float)):
+            return self.data == other
+        return self is other
+
+    __hash__ = object.__hash__
+
+    def __gt__(self, other):
+        assert isinstance(other, Value)
+        return self.data > other.data
+
     def relu(self):
         out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
 
@@ -56,13 +67,14 @@ class Value:
         # topological order all of the children in the graph
         topo = []
         visited = set()
-        def build_topo(v):
+        stack = [self]
+        while stack:
+            v = stack.pop()
             if v not in visited:
                 visited.add(v)
                 for child in v._prev:
-                    build_topo(child)
+                    stack.append(child)
                 topo.append(v)
-        build_topo(self)
 
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
