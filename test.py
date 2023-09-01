@@ -250,15 +250,12 @@ losses = collections.deque((), maxlen=16)
 def loss_changing():
     eps = 1
     if len(losses) < losses.maxlen:
+        # We are early in the process; keep going.
         return True
-    count = 0
-    first = losses[0]
-    for loss in losses:
-        if math.isnan(loss) or math.isinf(loss):
-            return False
-        if abs(loss - first) < eps:
-            count += 1
-    return count < len(losses)
+    if any(math.isnan(loss) or math.isinf(loss) for loss in losses):
+        # Stop iteration; something went wrong.
+        return False
+    return max(losses) - min(losses) < eps
 
 
 print("Training...")
