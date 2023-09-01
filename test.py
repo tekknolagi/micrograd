@@ -73,14 +73,16 @@ dim = 784
 model = nn_interp.MLP(dim, [20, 10])
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
-inp = [Value(0, (), 'input') for _ in range(DIM)]
-assert [i._id for i in inp] == list(range(inp[0]._id, inp[0]._id+len(inp)))
+inp = [Value(0, (), "input") for _ in range(DIM)]
+assert [i._id for i in inp] == list(range(inp[0]._id, inp[0]._id + len(inp)))
 out = model(inp)
 # NOTE: It's important that expected_onehot are all in sequence right next to
 # one another so we can set the label in training
-expected_onehot = [Value(0, (), 'input') for _ in range(10)]
-assert [exp._id for exp in expected_onehot] == list(range(expected_onehot[0]._id, expected_onehot[0]._id+len(expected_onehot)))
-loss = sum((exp-act)**2 for exp,act in zip(expected_onehot, out))
+expected_onehot = [Value(0, (), "input") for _ in range(10)]
+assert [exp._id for exp in expected_onehot] == list(
+    range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
+)
+loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
 topo = loss.topo()
 
 print("Writing C code...")
@@ -107,7 +109,8 @@ void init() {{
         for o in model.parameters():
             print(f"data[{o._id}] = {o.data}L;", file=f)
         print("}", file=f)
-        print(f"""\
+        print(
+            f"""\
 void set_input(PyObject* input_data) {{
     const char* buf = PyBytes_AsString(input_data);
     if (buf == NULL) {{
@@ -117,7 +120,9 @@ void set_input(PyObject* input_data) {{
         data[{inp[0]._id}+i] = buf[i];
     }}
 }}
-        """, file=f)
+        """,
+            file=f,
+        )
         print("void forward() {", file=f)
         for o in topo:
             for line in o.compile():
@@ -253,7 +258,7 @@ def loss_changing():
     for loss in losses:
         if math.isnan(loss) or math.isinf(loss):
             return False
-        if abs(loss-losses[loss_idx]) < EPS:
+        if abs(loss - losses[loss_idx]) < EPS:
             count += 1
     return count < len(losses)
 
