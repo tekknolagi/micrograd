@@ -73,10 +73,12 @@ model = nn_interp.MLP(dim, [20, 10])
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), 'input') for _ in range(DIM)]
+assert [i._id for i in inp] == list(range(inp[0]._id, inp[0]._id+len(inp)))
 out = model(inp)
 # NOTE: It's important that expected_onehot are all in sequence right next to
 # one another so we can set the label in training
 expected_onehot = [Value(0, (), 'input') for _ in range(10)]
+assert [exp._id for exp in expected_onehot] == list(range(expected_onehot[0]._id, expected_onehot[0]._id+len(expected_onehot)))
 loss = sum((exp-act)**2 for exp,act in zip(expected_onehot, out))
 topo = loss.topo()
 
