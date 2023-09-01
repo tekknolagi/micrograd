@@ -229,8 +229,8 @@ PyObject* PyInit_nn() {{
     print("Compiling extension...")
     include_dir = sysconfig.get_python_inc()
     lib_file = f"{build_dir}/nn.so"
-    os.system(f"ccache tcc -shared -fPIC -I{include_dir} {file_path} -o {lib_file}")
     shutil.copyfile(f.name, "nn.c")
+    os.system(f"ccache tcc -shared -fPIC -I{include_dir} {file_path} -o {lib_file}")
     shutil.copyfile(lib_file, "nn.so")
 
     print("Loading extension...")
