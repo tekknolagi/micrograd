@@ -5,13 +5,6 @@ from micrograd.nn import MLP
 
 random.seed(1337)
 
-# model = MLP(2, [2, 1])
-# inp = [Value(123), Value(456)]
-# out = model(inp)
-# topo = out.topo()
-# for o in topo:
-#     print("\n".join(o.compile()))
-
 # dim = 784
 # model = MLP(dim, [512, 10])
 dim = 20
