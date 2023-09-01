@@ -17,6 +17,7 @@ loss = sum((exp-act)**2 for exp,act in zip(expected_onehot, out))
 topo = loss.topo()
 print("#include <math.h>")
 print("#include <stdio.h>")
+print("#include <string.h>")
 print(f"double data[{micrograd.engine.counter}];")
 print(f"double grad[{micrograd.engine.counter}];")
 print("double relu(double x) { if (x < 0) { return 0; } else { return x; } }")
@@ -38,8 +39,7 @@ print("}")
 print("void zero_grad() {")
 # Don't just zero the parameters; Karpathy can get away with that because he
 # rebuilds the entire graph every time, but we don't.
-for o in topo:
-    print(f"grad[{o._id}] = 0;")
+print("memset(grad, 0, sizeof grad);")
 print("}")
 print("void backward() {")
 print(f"grad[{loss._id}] = 1;")
