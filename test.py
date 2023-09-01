@@ -244,21 +244,19 @@ PyObject* PyInit_nn() {{
     nn = _imp.create_dynamic(spec)
 
 
-n = 0
-nrounds = 0
-EPS = 1
 losses = collections.deque((), maxlen=16)
-loss_idx = 0
 
 
 def loss_changing():
+    eps = 1
     if len(losses) < losses.maxlen:
         return True
     count = 0
+    first = losses[0]
     for loss in losses:
         if math.isnan(loss) or math.isinf(loss):
             return False
-        if abs(loss - losses[loss_idx]) < EPS:
+        if abs(loss - first) < eps:
             count += 1
     return count < len(losses)
 
