@@ -71,8 +71,9 @@ dim = 784
 model = nn_interp.MLP(dim, [20, 10])
 inp = [Value(0, (), 'input') for _ in range(dim)]
 out = model(inp)
+# NOTE: It's important that expected_onehot are all in sequence right next to
+# one another so we can set the label in training
 expected_onehot = [Value(0, (), 'input') for _ in range(10)]
-expected_onehot[3] = Value(1, (), 'input')
 loss = sum((exp-act)**2 for exp,act in zip(expected_onehot, out))
 topo = loss.topo()
 
@@ -166,7 +167,9 @@ PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t na
       if (label < 0 && PyErr_Occurred()) {{
             return NULL;
       }}
-      // TODO(max): Set label
+      // Set label
+      memset(&data[{expected_onehot[0]._id}], 0, 10*sizeof(double));
+      data[{expected_onehot[0]._id}+label] = 1.0L;
       set_input(pixels_obj);
       forward();
       // TODO(max): Make this able to return multiple outputs?
