@@ -67,10 +67,8 @@ class images:
 print("Opening images...")
 db = images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")
 print("Building model...")
-# dim = 784
-# model = nn_interp.MLP(dim, [512, 10])
 dim = 784
-model = nn_interp.MLP(dim, [10, 10])
+model = nn_interp.MLP(dim, [20, 10])
 inp = [Value(0, (), 'input') for _ in range(dim)]
 out = model(inp)
 expected_onehot = [Value(0, (), 'input') for _ in range(10)]
@@ -141,7 +139,6 @@ void init() {{
         for o in model.parameters():
             print(f"data[{o._id}] -= learning_rate * grad[{o._id}];", file=f)
         print("}", file=f)
-        # print("\n".join(n.compile()), file=f)
         print(
             f"""
 #include <Python.h>
@@ -232,7 +229,7 @@ PyObject* PyInit_nn() {{
     print("Compiling extension...")
     include_dir = sysconfig.get_python_inc()
     lib_file = f"{build_dir}/nn.so"
-    os.system(f"tcc -shared -fPIC -I{include_dir} {file_path} -o {lib_file}")
+    os.system(f"ccache tcc -shared -fPIC -I{include_dir} {file_path} -o {lib_file}")
     shutil.copyfile(f.name, "nn.c")
     shutil.copyfile(lib_file, "nn.so")
 
