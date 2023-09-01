@@ -28,12 +28,8 @@ class Neuron(Module):
 
     def __call__(self, x):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
-        result = 0
-        for i in range(len(self.w)):
-            result += self.w[i]*x[i]
-        return (result+self.b).relu() if self.nonlin else result+self.b
-        # act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
-        # return act.relu() if self.nonlin else act
+        act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
+        return act.relu() if self.nonlin else act
 
     def compile(self):
         result = []
