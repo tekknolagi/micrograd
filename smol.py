@@ -77,6 +77,10 @@ int loss_changing() {
   double l = losses[losses_idx];
   int count = 0;
   for (int i = losses_idx, j = 0; j < NUM_LOSSES; j++) {
+    if (isnan(losses[i]) || isinf(losses[i])) {
+      // Something went wrong; stop training.
+      return 0;
+    }
     if (diff(losses[i], l) < EPS) {
       count++;
     }

@@ -57,7 +57,7 @@ class Value:
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
             assert len(self._prev) == 1
-            return [f"data[{self._id}] = pow({self._prev[0]._id}, {exponent});"]
+            return [f"data[{self._id}] = pow(data[{self._prev[0]._id}], {exponent});"]
         raise NotImplementedError(self._op)
 
     def backward_compile(self):
@@ -67,8 +67,8 @@ class Value:
         if self._op == '*':
             assert len(self._prev) == 2
             return [
-                f"grad[{self._prev[0]._id}] += grad[{self._prev[1]._id}]*grad[{self._id}];",
-                f"grad[{self._prev[1]._id}] += grad[{self._prev[0]._id}]*grad[{self._id}];",
+                f"grad[{self._prev[0]._id}] += data[{self._prev[1]._id}]*grad[{self._id}];",
+                f"grad[{self._prev[1]._id}] += data[{self._prev[0]._id}]*grad[{self._id}];",
                 ]
         if self._op == '+':
             assert len(self._prev) == 2
@@ -78,7 +78,7 @@ class Value:
                 ]
         if self._op == 'ReLU':
             assert len(self._prev) == 1
-            return [f"if (data[{self._id}] > 0) {{ grad[{self._prev[0]._id}] += grad[{self._id}]; }}"]
+            return [f"grad[{self._prev[0]._id}] += (data[{self._id}] > 0) * grad[{self._id}];"]
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
             assert len(self._prev) == 1
