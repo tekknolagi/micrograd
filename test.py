@@ -84,6 +84,12 @@ assert [exp._id for exp in expected_onehot] == list(
 )
 loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
 topo = loss.topo()
+# TODO(max): Figure out why there are (significant numbers of) duplicated
+# Values
+topo = list(dict.fromkeys(topo))  # dedup and maintain order
+num_nodes = len(topo)
+assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
+assert num_nodes == micrograd.engine.counter, f"{len(topo)} vs {micrograd.engine.counter}"
 
 print("Writing C code...")
 with tempfile.TemporaryDirectory() as dir_path:
@@ -99,8 +105,8 @@ with tempfile.TemporaryDirectory() as dir_path:
 #include <stdio.h>
 #include <string.h>
 #include <Python.h>
-double data[{micrograd.engine.counter}];
-double grad[{micrograd.engine.counter}];
+double data[{num_nodes}];
+double grad[{num_nodes}];
 double relu(double x) {{ if (x < 0) {{ return 0; }} else {{ return x; }} }}
 void init() {{
         """,
