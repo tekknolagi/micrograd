@@ -18,7 +18,7 @@ random.seed(1337)
 class image:
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = list(pixels)
+        self.pixels = pixels
 
 
 IMAGE_HEIGHT = 28
@@ -106,16 +106,12 @@ void init() {{
         print("}", file=f)
         print(f"""\
 void set_input(PyObject* input_data) {{
+    const char* buf = PyBytes_AsString(input_data);
+    if (buf == NULL) {{
+        abort();
+    }}
     for (int i = 0; i < {DIM}; i++) {{
-        PyObject* item_obj = PyList_GetItem(input_data, i);
-        if (item_obj == NULL) {{
-            abort();
-        }}
-        double item_double = PyFloat_AsDouble(item_obj);
-        if (item_double < 0 && PyErr_Occurred()) {{
-            abort();
-        }}
-        data[{inp[0]._id}+i] = item_double;
+        data[{inp[0]._id}+i] = buf[i];
     }}
 }}
         """, file=f)
@@ -154,12 +150,12 @@ PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t na
             PyErr_Format(PyExc_TypeError, "expected int");
             return NULL;
       }}
-      if (!PyList_CheckExact(pixels_obj)) {{
-            PyErr_Format(PyExc_TypeError, "expected list");
+      if (!PyBytes_CheckExact(pixels_obj)) {{
+            PyErr_Format(PyExc_TypeError, "expected bytes");
             return NULL;
       }}
-      if (PyList_Size(pixels_obj) != {DIM}) {{
-            PyErr_Format(PyExc_TypeError, "expected list of size {DIM}");
+      if (PyBytes_Size(pixels_obj) != {DIM}) {{
+            PyErr_Format(PyExc_TypeError, "expected bytes of size {DIM}");
             return NULL;
       }}
       int label = PyLong_AsLong(label_obj);
