@@ -24,6 +24,7 @@ class image:
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 PIXEL_LENGTH = IMAGE_HEIGHT * IMAGE_WIDTH
+DIM = PIXEL_LENGTH
 
 
 class images:
@@ -69,7 +70,9 @@ db = images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")
 print("Building model...")
 dim = 784
 model = nn_interp.MLP(dim, [20, 10])
-inp = [Value(0, (), 'input') for _ in range(dim)]
+# NOTE: It's important that input are all in sequence right next to one another
+# so we can set the input in training
+inp = [Value(0, (), 'input') for _ in range(DIM)]
 out = model(inp)
 # NOTE: It's important that expected_onehot are all in sequence right next to
 # one another so we can set the label in training
@@ -101,22 +104,21 @@ void init() {{
         for o in model.parameters():
             print(f"data[{o._id}] = {o.data}L;", file=f)
         print("}", file=f)
-        print(f"void set_input(PyObject* input_data) {{", file=f)
-        print("PyObject* item_obj; double item_double;", file=f)
-        for idx, o in enumerate(inp):
-            # TODO(max): Read image and also update label in loss
-            print(f"""\
-            item_obj = PyList_GetItem(input_data, {idx});
-            if (item_obj == NULL) {{
-                abort();
-            }}
-            item_double = PyFloat_AsDouble(item_obj);
-            if (item_double < 0 && PyErr_Occurred()) {{
-                abort();
-            }}
-            data[{o._id}] = item_double;
-            """, file=f)
-        print("}", file=f)
+        print(f"""\
+void set_input(PyObject* input_data) {{
+    for (int i = 0; i < {DIM}; i++) {{
+        PyObject* item_obj = PyList_GetItem(input_data, i);
+        if (item_obj == NULL) {{
+            abort();
+        }}
+        double item_double = PyFloat_AsDouble(item_obj);
+        if (item_double < 0 && PyErr_Occurred()) {{
+            abort();
+        }}
+        data[{inp[0]._id}+i] = item_double;
+    }}
+}}
+        """, file=f)
         print("void forward() {", file=f)
         for o in topo:
             lines = o.compile()
@@ -156,8 +158,8 @@ PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t na
             PyErr_Format(PyExc_TypeError, "expected list");
             return NULL;
       }}
-      if (PyList_Size(pixels_obj) != {dim}) {{
-            PyErr_Format(PyExc_TypeError, "expected list of size {dim}");
+      if (PyList_Size(pixels_obj) != {DIM}) {{
+            PyErr_Format(PyExc_TypeError, "expected list of size {DIM}");
             return NULL;
       }}
       int label = PyLong_AsLong(label_obj);
