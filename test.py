@@ -77,11 +77,12 @@ def timer(lam, msg=""):
     return result
 
 
-db = timer(lambda: images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"),
-           "Opening images...")
+db = timer(
+    lambda: images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"),
+    "Opening images...",
+)
 NUM_DIGITS = 10
-model = timer(lambda: nn_interp.MLP(DIM, [512, NUM_DIGITS]),
-              "Building model...")
+model = timer(lambda: nn_interp.MLP(DIM, [512, NUM_DIGITS]), "Building model...")
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
@@ -97,10 +98,15 @@ loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
 topo = loss.topo()
 # TODO(max): Figure out why there are (significant numbers of) duplicated
 # Values
-topo = timer(lambda: list(dict.fromkeys(topo)), "Deduping...")  # dedup and maintain order
+topo = timer(
+    lambda: list(dict.fromkeys(topo)), "Deduping..."
+)  # dedup and maintain order
 num_nodes = len(topo)
 assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
-assert num_nodes == micrograd.engine.counter, f"{len(topo)} vs {micrograd.engine.counter}"
+assert (
+    num_nodes == micrograd.engine.counter
+), f"{len(topo)} vs {micrograd.engine.counter}"
+
 
 def write_code():
     with tempfile.TemporaryDirectory() as dir_path:
@@ -155,7 +161,9 @@ def write_code():
             print("void update(int step) {", file=f)
             # TODO(max): It's not always 100; is this hard-coded for number of
             # training rounds in Karpathy's code?
-            print("double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f)
+            print(
+                "double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f
+            )
             for o in model.parameters():
                 print(f"data[{o._id}] -= learning_rate * grad[{o._id}];", file=f)
             print("}", file=f)
@@ -251,13 +259,16 @@ def write_code():
         shutil.copyfile(f.name, local_name)
     return local_name
 
-include_dir = sysconfig.get_python_inc()
+
 source_file = timer(lambda: write_code(), "Writing C code...")
 # TODO(max): Bring back Extension stuff and customize compiler using
 # https://shwina.github.io/custom-compiler-linker-extensions/
 lib_file = "nn.so"
-timer(lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-      "Compiling extension...")
+include_dir = sysconfig.get_python_inc()
+timer(
+    lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+    "Compiling extension...",
+)
 
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
