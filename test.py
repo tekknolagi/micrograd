@@ -243,7 +243,6 @@ n = 0
 nrounds = 0
 EPS = 1
 losses = collections.deque((), maxlen=16)
-losses.append(EPS+1)
 loss_idx = 0
 
 
