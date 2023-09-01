@@ -73,6 +73,7 @@ def loss(label, output):
 
 
 def argmax(output):
+    output = [o.data for o in output]
     return max(range(len(output)), key=output.__getitem__)
 
 

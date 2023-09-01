@@ -1,55 +1,136 @@
+def do_nothing(self):
+    pass
+
+
+def backward_mul(out, self, other):
+    self.grad += other.data * out.grad
+    other.grad += self.data * out.grad
+
+
+def backward_pow(out, self):
+    other = float(out._op[2:])
+    self.grad += (other * self.data**(other-1)) * out.grad
+
+
+def backward_add(out, self, other):
+    self.grad += out.grad
+    other.grad += out.grad
+
+
+def backward_relu(out, self):
+    self.grad += (out.data > 0) * out.grad
+
+
+counter = 0
+
 
 class Value:
     """ stores a single scalar value and its gradient """
+    __slots__ = ("data", "grad", "_backward", "_prev", "_op", "_id")
 
     def __init__(self, data, _children=(), _op=''):
         self.data = data
         self.grad = 0
         # internal variables used for autograd graph construction
-        self._backward = lambda: None
-        self._prev = set(_children)
+        self._backward = do_nothing
+        self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
+        global counter
+        self._id = counter
+        counter += 1
+
+    def compile(self):
+        if self._op == '':
+            return [f"data[{self._id}] = {self.data};"]
+        if self._op in ('weight', 'bias', 'input'):
+            # Set once at init time and thereafter reset in update
+            return []
+        if self._op == '*':
+            assert len(self._prev) == 2
+            return [f"data[{self._id}] = data[{self._prev[0]._id}]*data[{self._prev[1]._id}];"]
+        if self._op == '+':
+            assert len(self._prev) == 2
+            return [f"data[{self._id}] = data[{self._prev[0]._id}]+data[{self._prev[1]._id}];"]
+        if self._op == 'ReLU':
+            assert len(self._prev) == 1
+            return [f"data[{self._id}] = relu(data[{self._prev[0]._id}]);"]
+        if self._op.startswith('**'):
+            exponent = float(self._op[2:])
+            assert len(self._prev) == 1
+            return [f"data[{self._id}] = pow({self._prev[0]._id}, {exponent});"]
+        raise NotImplementedError(self._op)
+
+    def backward_compile(self):
+        if self._op in ('', 'weight', 'bias', 'input'):
+            # Set once at init time and thereafter reset in update
+            return []
+        if self._op == '*':
+            assert len(self._prev) == 2
+            return [
+                f"grad[{self._prev[0]._id}] += grad[{self._prev[1]._id}]*grad[{self._id}];",
+                f"grad[{self._prev[1]._id}] += grad[{self._prev[0]._id}]*grad[{self._id}];",
+                ]
+        if self._op == '+':
+            assert len(self._prev) == 2
+            return [
+                f"grad[{self._prev[0]._id}] += grad[{self._id}];",
+                f"grad[{self._prev[1]._id}] += grad[{self._id}];",
+                ]
+        if self._op == 'ReLU':
+            assert len(self._prev) == 1
+            return [f"if (data[{self._id}] > 0) {{ grad[{self._prev[0]._id}] += grad[{self._id}]; }}"]
+        if self._op.startswith('**'):
+            exponent = float(self._op[2:])
+            assert len(self._prev) == 1
+            return [f"grad[{self._prev[0]._id}] += {exponent}*pow(data[{self._prev[0]._id}], {exponent-1}) * grad[{self._id}];"]
+        raise NotImplementedError(self._op)
 
     def __add__(self, other):
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(other, (), '')
         out = Value(self.data + other.data, (self, other), '+')
-
-        def _backward():
-            self.grad += out.grad
-            other.grad += out.grad
-        out._backward = _backward
-
+        out._backward = backward_add
         return out
 
     def __mul__(self, other):
-        other = other if isinstance(other, Value) else Value(other)
+        other = other if isinstance(other, Value) else Value(other, (), '')
         out = Value(self.data * other.data, (self, other), '*')
-
-        def _backward():
-            self.grad += other.data * out.grad
-            other.grad += self.data * out.grad
-        out._backward = _backward
-
+        out._backward = backward_mul
         return out
 
     def __pow__(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
         out = Value(self.data**other, (self,), f'**{other}')
-
-        def _backward():
-            self.grad += (other * self.data**(other-1)) * out.grad
-        out._backward = _backward
-
+        out._backward = backward_pow
         return out
 
     def relu(self):
         out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
-
-        def _backward():
-            self.grad += (out.data > 0) * out.grad
-        out._backward = _backward
-
+        out._backward = backward_relu
         return out
+
+    def topo(self):
+        # result = []
+        # for child in self._prev:
+        #     result += child.topo()
+        # result.append(self)
+        # return result
+        # https://en.wikipedia.org/wiki/Tree_traversal#Post-order_implementation
+        result = []
+        stack = []
+        last_visited = None
+        while stack or self:
+            if self:
+                stack.append(self)
+                self = self._prev[0] if self._prev else None
+            else:
+                peek = stack[-1]
+                if len(peek._prev) > 1 and last_visited is not peek._prev[1]:
+                    self = peek._prev[1]
+                else:
+                    result.append(peek)
+                    last_visited = stack.pop()
+        return result
+
 
     def backward(self):
 
@@ -67,7 +148,7 @@ class Value:
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
         for v in reversed(topo):
-            v._backward()
+            v._backward(v, *v._prev)
 
     def __neg__(self): # -self
         return self * -1
