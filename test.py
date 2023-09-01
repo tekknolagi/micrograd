@@ -1,4 +1,5 @@
 import _imp
+import collections
 import importlib
 import math
 import micrograd
@@ -240,27 +241,22 @@ PyObject* PyInit_nn() {{
 
 n = 0
 nrounds = 0
-NUM_LOSSES = 16
 EPS = 1
-losses = [1] * NUM_LOSSES
-losses[1] = 2
+losses = collections.deque((), maxlen=16)
+losses.append(EPS+1)
 loss_idx = 0
 
 
-def add_loss(loss):
-    global loss_idx
-    losses[loss_idx] = loss
-    loss_idx = (loss_idx + 1) % NUM_LOSSES
-
-
 def loss_changing():
+    if len(losses) < losses.maxlen:
+        return True
     count = 0
     for loss in losses:
         if math.isnan(loss) or math.isinf(loss):
             return False
         if abs(loss-losses[loss_idx]) < EPS:
             count += 1
-    return count < NUM_LOSSES
+    return count < len(losses)
 
 
 print("Training...")
@@ -269,7 +265,7 @@ while loss_changing():
     im = next(db)
     loss = nn.forward(im.label, im.pixels)
     print(f"...round {nrounds:4d} loss {loss:.2f}")
-    add_loss(loss)
+    losses.append(loss)
     nn.zero_grad()
     nn.backward()
     nn.update(nrounds)
