@@ -263,11 +263,12 @@ def loss_changing():
     return count < NUM_LOSSES
 
 
+print("Training...")
 nrounds = 0
 while loss_changing():
     im = next(db)
     loss = nn.forward(im.label, im.pixels)
-    print(f"round {nrounds:4d} loss {loss:.2f}")
+    print(f"...round {nrounds:4d} loss {loss:.2f}")
     add_loss(loss)
     nn.zero_grad()
     nn.backward()
