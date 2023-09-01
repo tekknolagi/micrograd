@@ -226,6 +226,8 @@ PyObject* PyInit_nn() {{
     include_dir = sysconfig.get_python_inc()
     lib_file = f"{build_dir}/nn.so"
     shutil.copyfile(f.name, "nn.c")
+    # TODO(max): Bring back Extension stuff and customize compiler using
+    # https://shwina.github.io/custom-compiler-linker-extensions/
     os.system(f"ccache tcc -shared -fPIC -I{include_dir} {file_path} -o {lib_file}")
     shutil.copyfile(lib_file, "nn.so")
 
