@@ -90,21 +90,21 @@ int loss_changing() {
 }
 """)
 print(f"""int main() {{
-      init();
-      int nrounds = 0;
-      add_loss(1);
-      while (loss_changing()) {{
-          // TODO(max): Batches
-          input();
-          forward();
-          add_loss(data[{loss._id}]);
-          zero_grad();
-          backward();
-          update(nrounds);
-          printf("round %d: loss is %lf\\n", nrounds, data[{loss._id}]);
-          nrounds++;
-      }}
-      printf("%d training rounds\\n", nrounds);
+  init();
+  int nrounds = 0;
+  add_loss(1);
+  while (loss_changing()) {{
+      // TODO(max): Batches
+      input();
+      forward();
+      add_loss(data[{loss._id}]);
+      zero_grad();
+      backward();
+      update(nrounds);
+      printf("round %d: loss is %lf\\n", nrounds, data[{loss._id}]);
+      nrounds++;
+  }}
+  printf("%d training rounds\\n", nrounds);
 """)
 for idx, i in enumerate(out):
     print(f"""printf("digit {idx}: %lf\\n", data[{i._id}]);""")
