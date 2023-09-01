@@ -69,8 +69,7 @@ class images:
 print("Opening images...")
 db = images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")
 print("Building model...")
-dim = 784
-model = nn_interp.MLP(dim, [20, 10])
+model = nn_interp.MLP(DIM, [50, 10])
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
@@ -125,7 +124,8 @@ void set_input(PyObject* input_data) {{
         )
         print("void forward() {", file=f)
         for o in topo:
-            for line in o.compile():
+            line = o.compile()
+            if line:
                 print(line, file=f)
         print("}", file=f)
         print("void backward() {", file=f)

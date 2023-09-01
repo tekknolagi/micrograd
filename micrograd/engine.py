@@ -39,50 +39,60 @@ class Value:
         self._id = counter
         counter += 1
 
+    def var(self):
+        return f"data[{self._id}]"
+
+    def set(self, val):
+        return f"{self.var()} = {val};"
+
     def compile(self):
         if self._op == '':
-            return [f"data[{self._id}] = {self.data};"]
+            return self.set(self.data)
         if self._op in ('weight', 'bias', 'input'):
             # Set once at init time and thereafter reset in update
-            return []
+            return ""
         if self._op == '*':
             assert len(self._prev) == 2
-            return [f"data[{self._id}] = data[{self._prev[0]._id}]*data[{self._prev[1]._id}];"]
+            return self.set(f"{self._prev[0].var()}*{self._prev[1].var()}")
         if self._op == '+':
             assert len(self._prev) == 2
-            return [f"data[{self._id}] = data[{self._prev[0]._id}]+data[{self._prev[1]._id}];"]
+            return self.set(f"{self._prev[0].var()}+{self._prev[1].var()}")
         if self._op == 'ReLU':
             assert len(self._prev) == 1
-            return [f"data[{self._id}] = relu(data[{self._prev[0]._id}]);"]
+            return self.set(f"relu({self._prev[0].var()})")
         if self._op.startswith('**'):
-            exponent = float(self._op[2:])
+            exponent = int(self._op[2:])
             assert len(self._prev) == 1
-            return [f"data[{self._id}] = pow(data[{self._prev[0]._id}], {exponent});"]
+            return self.set(f"pow({self._prev[0].var()}, {exponent})")
         raise NotImplementedError(self._op)
+
+    def getgrad(self):
+        return f"grad[{self._id}]"
 
     def backward_compile(self):
         if self._op in ('', 'weight', 'bias', 'input'):
-            # Set once at init time and thereafter reset in update
+            # Nothing to propagate to children.
+            assert not self._prev
             return []
         if self._op == '*':
-            assert len(self._prev) == 2
+            left, right = self._prev
             return [
-                f"grad[{self._prev[0]._id}] += data[{self._prev[1]._id}]*grad[{self._id}];",
-                f"grad[{self._prev[1]._id}] += data[{self._prev[0]._id}]*grad[{self._id}];",
+                f"{left.getgrad()} += {right.var()}*{self.getgrad()};",
+                f"{right.getgrad()} += {left.var()}*{self.getgrad()};",
                 ]
         if self._op == '+':
-            assert len(self._prev) == 2
+            left, right = self._prev
             return [
-                f"grad[{self._prev[0]._id}] += grad[{self._id}];",
-                f"grad[{self._prev[1]._id}] += grad[{self._id}];",
+                f"{left.getgrad()} += {self.getgrad()};",
+                f"{right.getgrad()} += {self.getgrad()};",
                 ]
         if self._op == 'ReLU':
-            assert len(self._prev) == 1
-            return [f"grad[{self._prev[0]._id}] += (data[{self._id}] > 0) * grad[{self._id}];"]
+            prev, = self._prev
+            return [f"{prev.getgrad()} += ({self.var()} > 0)*{self.getgrad()};"]
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
-            assert len(self._prev) == 1
-            return [f"grad[{self._prev[0]._id}] += {exponent}*pow(data[{self._prev[0]._id}], {exponent-1}) * grad[{self._id}];"]
+            prev, = self._prev
+            return [f"{prev.getgrad()} += {exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()};"]
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
