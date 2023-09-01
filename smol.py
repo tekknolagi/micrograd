@@ -36,7 +36,9 @@ for o in topo:
         print("\n".join(lines))
 print("}")
 print("void zero_grad() {")
-for o in model.parameters():
+# Don't just zero the parameters; Karpathy can get away with that because he
+# rebuilds the entire graph every time, but we don't.
+for o in topo:
     print(f"grad[{o._id}] = 0;")
 print("}")
 print("void backward() {")
