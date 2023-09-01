@@ -134,9 +134,7 @@ void set_input(PyObject* input_data) {{
             print(f"data[{o._id}] -= learning_rate * grad[{o._id}];", file=f)
         print("}", file=f)
         print(
-            f"""
-#include <Python.h>
-
+            f"""\
 PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t nargs) {{
       if (nargs != 2) {{
             PyErr_Format(PyExc_TypeError, "expected 2 args: label, pixels");
