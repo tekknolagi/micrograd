@@ -123,9 +123,6 @@ void init() {{
             if lines:
                 print("\n".join(lines), file=f)
         print("}", file=f)
-        # Don't just zero the parameters; Karpathy can get away with that
-        # because he rebuilds the entire graph every time, but we don't.
-        print("void zero_grad() { memset(grad, 0, sizeof grad); }", file=f)
         print("void backward() {", file=f)
         print(f"grad[{loss._id}] = 1;", file=f)
         for o in reversed(topo):
@@ -178,7 +175,9 @@ PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t na
 }}
 
 PyObject* zero_grad_wrapper(PyObject* module) {{
-      zero_grad();
+      // Don't just zero the parameters; Karpathy can get away with that
+      // because he rebuilds the entire graph every time, but we don't.
+      memset(grad, 0, sizeof grad);
       Py_RETURN_NONE;
 }}
 
