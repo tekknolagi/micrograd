@@ -117,16 +117,14 @@ void set_input(PyObject* input_data) {{
         """, file=f)
         print("void forward() {", file=f)
         for o in topo:
-            lines = o.compile()
-            if lines:
-                print("\n".join(lines), file=f)
+            for line in o.compile():
+                print(line, file=f)
         print("}", file=f)
         print("void backward() {", file=f)
         print(f"grad[{loss._id}] = 1;", file=f)
         for o in reversed(topo):
-            lines = o.backward_compile()
-            if lines:
-                print("\n".join(lines), file=f)
+            for line in o.backward_compile():
+                print(line, file=f)
         print("}", file=f)
         print("void update(int step) {", file=f)
         # TODO(max): It's not always 100; is this hard-coded for number of
