@@ -69,7 +69,8 @@ class images:
 print("Opening images...")
 db = images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")
 print("Building model...")
-model = nn_interp.MLP(DIM, [50, 10])
+NUM_DIGITS = 10
+model = nn_interp.MLP(DIM, [50, NUM_DIGITS])
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
@@ -77,7 +78,7 @@ assert [i._id for i in inp] == list(range(inp[0]._id, inp[0]._id + len(inp)))
 out = model(inp)
 # NOTE: It's important that expected_onehot are all in sequence right next to
 # one another so we can set the label in training
-expected_onehot = [Value(0, (), "input") for _ in range(10)]
+expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
 assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
@@ -167,7 +168,7 @@ PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t na
             return NULL;
       }}
       // Set label
-      memset(&data[{expected_onehot[0]._id}], 0, 10*sizeof(double));
+      memset(&data[{expected_onehot[0]._id}], 0, {NUM_DIGITS}*sizeof data[0]);
       data[{expected_onehot[0]._id}+label] = 1.0L;
       set_input(pixels_obj);
       forward();
