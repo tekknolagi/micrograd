@@ -95,12 +95,9 @@ assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
 loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
-topo = loss.topo()
+topo = timer(lambda: loss.topo(), "Building topo...")
 # TODO(max): Figure out why there are (significant numbers of) duplicated
 # Values
-topo = timer(
-    lambda: list(dict.fromkeys(topo)), "Deduping..."
-)  # dedup and maintain order
 num_nodes = len(topo)
 assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
 assert (

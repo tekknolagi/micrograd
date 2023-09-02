@@ -119,14 +119,10 @@ class Value:
         return out
 
     def topo(self):
-        # result = []
-        # for child in self._prev:
-        #     result += child.topo()
-        # result.append(self)
-        # return result
         # https://en.wikipedia.org/wiki/Tree_traversal#Post-order_implementation
         result = []
         stack = []
+        visited = set()
         last_visited = None
         while stack or self:
             if self:
@@ -137,10 +133,12 @@ class Value:
                 if len(peek._prev) > 1 and last_visited is not peek._prev[1]:
                     self = peek._prev[1]
                 else:
-                    result.append(peek)
+                    # TODO(max): Figure out why we need a visited set
+                    if peek not in visited:
+                        result.append(peek)
+                        visited.add(peek)
                     last_visited = stack.pop()
         return result
-
 
     def backward(self):
 
