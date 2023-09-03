@@ -221,11 +221,45 @@ def write_code():
           Py_RETURN_NONE;
     }}
 
+    PyObject* data_wrapper(PyObject* module, PyObject* idx_obj) {{
+          long i = PyLong_AsLong(idx_obj);
+          if (i < 0) {{
+                  if (PyErr_Occurred()) {{
+                        return NULL;
+                  }}
+                  PyErr_Format(PyExc_TypeError, "expected positive index");
+                  return NULL;
+          }}
+          if (i >= {DIM}) {{
+                  PyErr_Format(PyExc_TypeError, "index out of bounds");
+                  return NULL;
+          }}
+          return PyFloat_FromDouble(data[i]);
+    }}
+
+    PyObject* grad_wrapper(PyObject* module, PyObject* idx_obj) {{
+          long i = PyLong_AsLong(idx_obj);
+          if (i < 0) {{
+                  if (PyErr_Occurred()) {{
+                        return NULL;
+                  }}
+                  PyErr_Format(PyExc_TypeError, "expected positive index");
+                  return NULL;
+          }}
+          if (i >= {DIM}) {{
+                  PyErr_Format(PyExc_TypeError, "index out of bounds");
+                  return NULL;
+          }}
+          return PyFloat_FromDouble(grad[i]);
+    }}
+
     static PyMethodDef nn_methods[] = {{
           {{ "forward", (PyCFunction)forward_wrapper, METH_FASTCALL, "doc" }},
           {{ "zero_grad", (PyCFunction)zero_grad_wrapper, METH_NOARGS, "doc" }},
           {{ "backward", (PyCFunction)backward_wrapper, METH_NOARGS, "doc" }},
           {{ "update", update_wrapper, METH_O, "doc" }},
+          {{ "data", data_wrapper, METH_O, "doc" }},
+          {{ "grad", grad_wrapper, METH_O, "doc" }},
           {{ NULL, NULL }},
     }};
 
