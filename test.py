@@ -230,7 +230,7 @@ def write_code():
                   PyErr_Format(PyExc_TypeError, "expected positive index");
                   return NULL;
           }}
-          if (i >= {DIM}) {{
+          if (i >= {num_nodes}) {{
                   PyErr_Format(PyExc_TypeError, "index out of bounds");
                   return NULL;
           }}
@@ -246,7 +246,7 @@ def write_code():
                   PyErr_Format(PyExc_TypeError, "expected positive index");
                   return NULL;
           }}
-          if (i >= {DIM}) {{
+          if (i >= {num_nodes}) {{
                   PyErr_Format(PyExc_TypeError, "index out of bounds");
                   return NULL;
           }}
