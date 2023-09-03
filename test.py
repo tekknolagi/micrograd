@@ -1,3 +1,4 @@
+import argparse
 import _imp
 import collections
 import importlib
@@ -256,20 +257,6 @@ def write_code():
         shutil.copyfile(f.name, local_name)
     return local_name
 
-
-source_file = timer(lambda: write_code(), "Writing C code...")
-# TODO(max): Bring back Extension stuff and customize compiler using
-# https://shwina.github.io/custom-compiler-linker-extensions/
-lib_file = "nn.so"
-include_dir = sysconfig.get_python_inc()
-timer(
-    lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-    "Compiling extension...",
-)
-
-spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
-nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
-
 losses = collections.deque((), maxlen=16)
 
 
@@ -284,14 +271,49 @@ def loss_changing():
     return max(losses) - min(losses) < eps
 
 
-print("Training...")
-nrounds = 0
-while loss_changing():
-    im = next(db)
-    loss = nn.forward(im.label, im.pixels)
-    print(f"...round {nrounds:4d} loss {loss:.2f}")
-    losses.append(loss)
-    nn.zero_grad()
-    nn.backward()
-    nn.update(nrounds)
-    nrounds += 1
+parser = argparse.ArgumentParser()
+parser.add_argument("--compiled", action="store_true")
+args = parser.parse_args()
+
+if args.compiled:
+    source_file = timer(lambda: write_code(), "Writing C code...")
+    # TODO(max): Bring back Extension stuff and customize compiler using
+    # https://shwina.github.io/custom-compiler-linker-extensions/
+    lib_file = "nn.so"
+    include_dir = sysconfig.get_python_inc()
+    timer(
+        lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        "Compiling extension...",
+    )
+    spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
+    nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
+    print("Training...")
+    nrounds = 0
+    while loss_changing():
+        im = next(db)
+        loss = nn.forward(im.label, im.pixels[:DIM])
+        print(f"...round {nrounds:4d} loss {loss:.2f}")
+        losses.append(loss)
+        nn.zero_grad()
+        nn.backward()
+        nn.update(nrounds)
+        nrounds += 1
+else:
+    nn = model
+    print("Training...")
+    nrounds = 0
+    while loss_changing():
+        im = next(db)
+        out = nn(im.pixels[:DIM])
+        expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
+        expected_onehot[im.label] = 1.0
+        loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
+        print(f"...round {nrounds:4d} loss {loss.data:.2f}")
+        losses.append(loss.data)
+        nn.zero_grad()
+        loss.backward()
+        # nn.update(nrounds)
+        learning_rate = 1.0 - 0.9*nrounds/100
+        for p in model.parameters():
+            p.data -= learning_rate * p.grad
+        nrounds += 1
