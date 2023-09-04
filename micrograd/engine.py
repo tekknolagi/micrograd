@@ -1,3 +1,7 @@
+import math
+import functools
+
+
 def do_nothing(self):
     pass
 
@@ -64,6 +68,8 @@ class Value:
             exponent = int(self._op[2:])
             assert len(self._prev) == 1
             return self.set(f"pow({self._prev[0].var()}, {exponent})")
+        if self._op == 'exp':
+            return self.set(f"exp({self._prev[0].var()})")
         raise NotImplementedError(self._op)
 
     def getgrad(self):
@@ -93,6 +99,9 @@ class Value:
             exponent = float(self._op[2:])
             prev, = self._prev
             return [f"{prev.getgrad()} += {exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()};"]
+        if self._op == 'exp':
+            prev, = self._prev
+            return [f"{prev.getgrad()} += exp({prev.var()})*{self.getgrad()};"]
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
@@ -158,6 +167,15 @@ class Value:
         for v in reversed(topo):
             v._backward(v, *v._prev)
 
+    def exp(self):
+        out = Value(math.exp(self.data), (self,), 'exp')
+
+        def _backward():
+            self.grad += math.exp(self.data) * out.grad
+        out._backward = _backward
+
+        return out
+
     def __neg__(self): # -self
         return self * -1
 
@@ -181,3 +199,21 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"
+
+
+class Max(Value):
+    def __init__(self, values):
+        super().__init__(max(v.data for v in values), tuple(values), 'max')
+
+    def compile(self):
+        prev = (v.var() for v in self._prev)
+        val = functools.reduce(lambda x, y: f"fmax({x}, {y})", prev)
+        return self.set(val)
+
+    def backward_compile(self):
+        prev_id = (str(v._id) for v in self._prev)
+        return [
+                f"double input{self._id}[] = {{ {', '.join(prev_id)} }};",
+                f"int idx{self._id} = argmax({len(self._prev)}, input{self._id});",
+                f"grad[idx{self._id}] += {self.getgrad()};",
+                ]
