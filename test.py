@@ -302,7 +302,7 @@ def loss_changing():
     if any(math.isnan(loss) or math.isinf(loss) for loss in losses):
         # Stop iteration; something went wrong.
         return False
-    return max(losses) - min(losses) < eps
+    return max(losses) - min(losses) >= eps
 
 
 parser = argparse.ArgumentParser()
