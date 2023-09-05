@@ -70,6 +70,8 @@ class Value:
             return self.set(f"pow({self._prev[0].var()}, {exponent})")
         if self._op == 'exp':
             return self.set(f"exp({self._prev[0].var()})")
+        if self._op == 'log':
+            return self.set(f"log({self._prev[0].var()})")
         raise NotImplementedError(self._op)
 
     def getgrad(self):
@@ -102,6 +104,9 @@ class Value:
         if self._op == 'exp':
             prev, = self._prev
             return [f"{prev.getgrad()} += exp({prev.var()})*{self.getgrad()};"]
+        if self._op == 'log':
+            prev, = self._prev
+            return [f"{prev.getgrad()} += 1.0L/{prev.var()}*{self.getgrad()};"]
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
@@ -125,6 +130,14 @@ class Value:
     def relu(self):
         out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
         out._backward = backward_relu
+        return out
+
+    def log(self):
+        out = Value(math.log(self.data), (self,), 'log')
+
+        def _backward():
+            self.grad += 1/self.data * out.grad
+        out._backward = _backward
         return out
 
     def topo(self):
