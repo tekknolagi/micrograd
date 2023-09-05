@@ -123,6 +123,17 @@ def write_code():
     double data[{num_nodes}];
     double grad[{num_nodes}];
     double relu(double x) {{ if (x < 0) {{ return 0; }} else {{ return x; }} }}
+    int argmax(int len, double* data_indices) {{
+        assert(len > 0);
+        int maxind = data_indices[0];
+        for (int i = 1; i < len; i++) {{
+            int cur = data_indices[i];
+            if (data[cur] > data[maxind]) {{
+                maxind = cur;
+            }}
+        }}
+        return maxind;
+    }}
     void init() {{
             """,
                 file=f,
