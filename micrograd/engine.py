@@ -2,7 +2,7 @@ import math
 import functools
 
 
-def do_nothing(self):
+def do_nothing(self, *args):
     pass
 
 
@@ -135,7 +135,7 @@ class Value:
     def log(self):
         out = Value(math.log(self.data), (self,), 'log')
 
-        def _backward():
+        def _backward(out, self):
             self.grad += 1/self.data * out.grad
         out._backward = _backward
         return out
@@ -183,7 +183,7 @@ class Value:
     def exp(self):
         out = Value(math.exp(self.data), (self,), 'exp')
 
-        def _backward():
+        def _backward(out, self):
             self.grad += math.exp(self.data) * out.grad
         out._backward = _backward
 
