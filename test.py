@@ -167,7 +167,7 @@ def write_code():
             print("void backward() {", file=f)
             for o in reversed(topo):
                 if o._op not in ('weight', 'bias'):
-                    print(f"double grad{o._id};", file=f)
+                    print(f"double grad{o._id} = 0;", file=f)
             print(f"{loss.getgrad()} = 1;", file=f)
             for o in reversed(topo):
                 for line in o.backward_compile():
