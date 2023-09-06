@@ -50,11 +50,15 @@ class Value:
         raise NotImplementedError(self._op)
 
     def getgrad(self):
-        if self._op not in ('weight', 'bias'):
-            return f"grad{self._id}"
-        return f"grad[{self._id}]"
+        if self._op in ('', 'input'):
+            raise RuntimeError("Grad for constants and input data not stored")
+        if self._op in ('weight', 'bias'):
+            return f"grad[{self._id}]"
+        return f"grad{self._id}"
 
     def setgrad(self, val):
+        if self._op in ('', 'input'):
+            return []
         return [f"{self.getgrad()} += clip({val});"]
 
     def backward_compile(self):
