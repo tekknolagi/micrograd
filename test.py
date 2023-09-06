@@ -183,7 +183,7 @@ def write_code():
             # TODO(max): It's not always 100; is this hard-coded for number of
             # training rounds in Karpathy's code?
             print(
-                "double learning_rate = (1.0L - (0.9L * (double)step) / 100.0L)/5.0;", file=f
+                "double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f
             )
             for o in model.parameters():
                 print(f"{{ double grad_update = learning_rate * grad[{o._id}] / ((double)batch_size);", file=f)
