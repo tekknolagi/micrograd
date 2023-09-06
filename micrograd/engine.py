@@ -86,28 +86,28 @@ class Value:
         if self._op == '*':
             left, right = self._prev
             return [
-                f"{left.getgrad()} += {right.var()}*{self.getgrad()};",
-                f"{right.getgrad()} += {left.var()}*{self.getgrad()};",
+                f"{left.getgrad()} += clip({right.var()}*{self.getgrad()});",
+                f"{right.getgrad()} += clip({left.var()}*{self.getgrad()});",
                 ]
         if self._op == '+':
             left, right = self._prev
             return [
-                f"{left.getgrad()} += {self.getgrad()};",
-                f"{right.getgrad()} += {self.getgrad()};",
+                f"{left.getgrad()} += clip({self.getgrad()});",
+                f"{right.getgrad()} += clip({self.getgrad()});",
                 ]
         if self._op == 'ReLU':
             prev, = self._prev
-            return [f"{prev.getgrad()} += ({self.var()}>0)*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(({self.var()} >0)*{self.getgrad()});"]
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
             prev, = self._prev
-            return [f"{prev.getgrad()} += {exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip({exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()});"]
         if self._op == 'exp':
             prev, = self._prev
-            return [f"{prev.getgrad()} += exp({prev.var()})*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(exp({prev.var()})*{self.getgrad()});"]
         if self._op == 'log':
             prev, = self._prev
-            return [f"{prev.getgrad()} += 1.0L/{prev.var()}*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(1.0L/{prev.var()}*{self.getgrad()});"]
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
