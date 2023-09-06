@@ -54,6 +54,9 @@ class Value:
             return f"grad{self._id}"
         return f"grad[{self._id}]"
 
+    def setgrad(self, val):
+        return [f"{self.getgrad()} += clip({val});"]
+
     def backward_compile(self):
         if not self._prev:
             assert self._op in ('', 'weight', 'bias', 'input')
@@ -62,29 +65,24 @@ class Value:
             return []
         if self._op == '*':
             left, right = self._prev
-            return [
-                f"{left.getgrad()} += clip({right.var()}*{self.getgrad()});",
-                f"{right.getgrad()} += clip({left.var()}*{self.getgrad()});",
-                ]
+            return left.setgrad(f"{right.var()}*{self.getgrad()}") +\
+                    right.setgrad(f"{left.var()}*{self.getgrad()}")
         if self._op == '+':
             left, right = self._prev
-            return [
-                f"{left.getgrad()} += clip({self.getgrad()});",
-                f"{right.getgrad()} += clip({self.getgrad()});",
-                ]
+            return left.setgrad(f"{self.getgrad()}") + right.setgrad(f"{self.getgrad()}")
         if self._op == 'ReLU':
             prev, = self._prev
-            return [f"{prev.getgrad()} += clip(({self.var()} >0)*{self.getgrad()});"]
+            return prev.setgrad(f"({self.var()}>0)*{self.getgrad()}")
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
             prev, = self._prev
-            return [f"{prev.getgrad()} += clip({exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()});"]
+            return prev.setgrad(f"{exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()}")
         if self._op == 'exp':
             prev, = self._prev
-            return [f"{prev.getgrad()} += clip(exp({prev.var()})*{self.getgrad()});"]
+            return prev.setgrad(f"exp({prev.var()})*{self.getgrad()}")
         if self._op == 'log':
             prev, = self._prev
-            return [f"{prev.getgrad()} += clip(1.0L/{prev.var()}*{self.getgrad()});"]
+            return prev.setgrad(f"1.0L/{prev.var()}*{self.getgrad()}")
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
