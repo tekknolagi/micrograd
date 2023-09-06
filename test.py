@@ -186,15 +186,18 @@ def write_code():
             print("void update(int step, int batch_size) {", file=f)
             # TODO(max): It's not always 100; is this hard-coded for number of
             # training rounds in Karpathy's code?
+            print("double initial_lrate = 0.01;", file=f)
+            print("double decay = 0.01;", file=f)
             print(
-                "double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f
+                    # "double learning_rate = 2.0L - (0.9L * (double)step) / 100.0L;", file=f
+                    "double learning_rate = initial_lrate * (1 / (1 + decay * step));", file=f,
             )
             for o in model.parameters():
                 assert o._op in ('weight', 'bias'), repr(o._op)
                 assert '[' in o.getgrad()
-                print(f"{{ double grad_update = learning_rate * {o.getgrad()} / ((double)batch_size);", file=f)
-                print("if (isnan(grad_update)) exit(1);", file=f)
-                print("if (isinf(grad_update)) exit(1);", file=f)
+                print(f"{{ double grad_update = learning_rate * {o.getgrad()};", file=f)
+                print("if (isnan(grad_update)) { printf(\"FOUND NAN\\n\"); exit(1); }", file=f)
+                print("if (isinf(grad_update)) { printf(\"FOUND INF\\n\"); exit(1); }", file=f)
                 # print("if (grad_update <= 0) {printf(\"zero\n\"); exit(1);}", file=f)
                 # print(f"""if (grad_update>0) printf("grad update (lr %lf grad %lf) is %lf\\n", learning_rate, grad[{o._id}], grad_update);""", file=f)
                 print(f"data[{o._id}] -= grad_update; }}", file=f)
