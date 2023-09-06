@@ -106,7 +106,7 @@ assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
 # loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, softmax_output))
-loss = -sum(exp*act.log() for exp, act in zip(expected_onehot, softmax_output))
+loss = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
 topo = timer(lambda: loss.topo(), "Building topo...")
 num_nodes = len(topo)
 assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
