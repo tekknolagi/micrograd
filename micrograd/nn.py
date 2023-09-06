@@ -12,9 +12,6 @@ class Module:
     def parameters(self):
         return []
 
-    def func_name(self):
-        return f"{self.__class__.__name__}_{self.id}"
-
 
 class Neuron(Module):
 
@@ -30,25 +27,6 @@ class Neuron(Module):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
         act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
         return act.relu() if self.nonlin else act
-
-    def compile(self):
-        result = []
-        result.append(
-            f"INLINE double {self.func_name()}(const Vector<double, {len(self.w)}>& input) {{",
-        )
-        result.append(
-            "double result = "
-            + " + ".join(
-                f"{wi.data}*input.at({xi})" for xi, wi in enumerate(self.w)
-            )
-            + f" + {self.b.data};"
-        )
-        if self.nonlin:
-            # relu
-            result.append("result = std::max(result, double{0});")
-        result.append("return result;")
-        result.append("}")
-        return result
 
     def parameters(self):
         return self.w + [self.b]
@@ -76,24 +54,6 @@ class Layer(Module):
         else:
             return f"Vector<double, {self.nout}>"
 
-    def compile(self):
-        result = []
-        for n in self.neurons:
-            result += n.compile()
-        result += [
-            f"{self.output_type()} {self.func_name()}(const Vector<double, {self.nin}>& input) {{",
-        ]
-        if self.nout == 1:
-            result.append(f"return {self.neurons[0].func_name()}(input);")
-            result.append("}")
-            return result
-        result.append(f"{self.output_type()} result;")
-        for idx, n in enumerate(self.neurons):
-            result.append(f"result.at({idx}) = {n.func_name()}(input);")
-        result.append("return result;")
-        result.append("}")
-        return result
-
     def parameters(self):
         return [p for n in self.neurons for p in n.parameters()]
 
@@ -115,21 +75,6 @@ class MLP(Module):
         for layer in self.layers:
             x = layer(x)
         return x
-
-    def compile(self):
-        result = []
-        for layer in self.layers:
-            result += layer.compile()
-        result.append(
-            f"{self.layers[-1].output_type()} {self.func_name()}(const Vector<double, {self.nin}>& input) {{"
-        )
-        for idx, layer in enumerate(self.layers):
-            inp = "input" if idx == 0 else f"result{idx-1}"
-            output = f"result{idx}"
-            result.append(f"{layer.output_type()} {output} = {layer.func_name()}({inp});")
-        result.append(f"return {output};")
-        result.append("}")
-        return result
 
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]
