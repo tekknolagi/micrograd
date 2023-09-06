@@ -1,5 +1,6 @@
 import torch
 from micrograd.engine import Value
+from micrograd.nn import MLP
 
 def test_sanity_check():
 
@@ -84,3 +85,29 @@ def test_duplicate_backprop():
     assert a.grad.item() == 8.
     assert b.grad.item() == 8.
     assert c.grad.item() == 1.
+
+
+def test_inplace_forward():
+    a = Value(1.0)
+    b = Value(2.0)
+    c = Value(3.0)
+    c = a + b * c
+    assert c.data == 7.
+
+    a.data = 8
+    c.forward()
+    assert c.data == 14.
+
+
+def test_inplace_forward_mlp():
+    model = MLP(2, [16, 1])
+    expected = model([Value(3), Value(4)])
+
+    x = Value(0)
+    y = Value(0)
+    actual = model([x, y])
+    x.data = 3
+    y.data = 4
+    actual.forward()
+
+    assert actual.data == expected.data
