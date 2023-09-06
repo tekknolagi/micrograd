@@ -28,6 +28,15 @@ class Value:
             raise RuntimeError("Can't set constant")
         return f"{self.var()} = {val};"
 
+    def make_exp(self, val, exp):
+        if exp == 0:
+            return "1"
+        elif exp == 1:
+            return val
+        elif exp == -1:
+            return f"((double)1)/{val}"
+        return f"pow({val}, {exp})"
+
     def compile(self):
         if self._op in ('', 'weight', 'bias', 'input'):
             # Set once at init time and thereafter reset in update
@@ -44,7 +53,7 @@ class Value:
         if self._op.startswith('**'):
             exponent = int(self._op[2:])
             assert len(self._prev) == 1
-            return self.set(f"pow({self._prev[0].var()}, {exponent})")
+            return self.set(self.make_exp(self._prev[0].var(), exponent))
         if self._op == 'exp':
             return self.set(f"exp({self._prev[0].var()})")
         if self._op == 'log':
@@ -80,9 +89,10 @@ class Value:
             prev, = self._prev
             return prev.setgrad(f"({self.var()}>0)*{self.getgrad()}")
         if self._op.startswith('**'):
-            exponent = float(self._op[2:])
+            exponent = int(self._op[2:])
             prev, = self._prev
-            return prev.setgrad(f"{exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()}")
+            exp = self.make_exp(prev.var(), exponent-1)
+            return prev.setgrad(f"{exponent}*{exp}*{self.getgrad()}")
         if self._op == 'exp':
             prev, = self._prev
             return prev.setgrad(f"exp({prev.var()})*{self.getgrad()}")
