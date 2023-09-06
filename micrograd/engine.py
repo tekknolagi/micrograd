@@ -142,28 +142,22 @@ class Value:
         return out
 
     def topo(self):
-        # https://en.wikipedia.org/wiki/Tree_traversal#Post-order_implementation
-        result = []
-        stack = []
-        visited = set()
-        last_visited = None
-        while stack or self:
-            if self:
-                stack.append(self)
-                self = self._prev[0] if self._prev else None
-            else:
-                peek = stack[-1]
-                if len(peek._prev) > 1 and last_visited is not peek._prev[1]:
-                    self = peek._prev[1]
-                else:
-                    # TODO(max): Figure out why we need a visited set
-                    if peek not in visited:
-                        result.append(peek)
-                        visited.add(peek)
-                    # else:
-                    #     assert peek._op in ('', 'weight', 'bias', 'input'), f"uh oh {peek._op}"
-                    last_visited = stack.pop()
-        return result
+        seen = set()
+        stack = []    # path variable is gone, stack and order are new
+        order = []    # order will be in reverse order at first
+        q = [self]
+        while q:
+            v = q.pop()
+            if v not in seen:
+                seen.add(v) # no need to append to path any more
+                q.extend(v._prev)
+
+                while stack and v not in stack[-1]._prev: # new stuff here!
+                    order.append(stack.pop())
+                stack.append(v)
+
+        return list(reversed(stack + order[::-1]))   # new return value!
+
 
     def backward(self):
 
