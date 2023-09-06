@@ -19,15 +19,17 @@ class Value:
         counter += 1
 
     def var(self):
+        if self._op == '':
+            return str(self.data)
         return f"data[{self._id}]"
 
     def set(self, val):
+        if self._op == '':
+            raise RuntimeError("Can't set constant")
         return f"{self.var()} = {val};"
 
     def compile(self):
-        if self._op == '':
-            return self.set(self.data)
-        if self._op in ('weight', 'bias', 'input'):
+        if self._op in ('', 'weight', 'bias', 'input'):
             # Set once at init time and thereafter reset in update
             return ""
         if self._op == '*':
