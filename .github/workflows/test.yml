@@ -31,4 +31,4 @@ jobs:
     - name: Run tests
       run: |
         source env/bin/activate
-        PYTHONPATH=. pytest
+        pytest
