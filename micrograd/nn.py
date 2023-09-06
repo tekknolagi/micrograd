@@ -1,8 +1,6 @@
 import random
 from micrograd.engine import Value
 
-counter = 0
-
 class Module:
 
     def zero_grad(self):
@@ -12,16 +10,12 @@ class Module:
     def parameters(self):
         return []
 
-
 class Neuron(Module):
 
     def __init__(self, nin, nonlin=True):
         self.w = [Value(random.uniform(-1,1), (), 'weight') for _ in range(nin)]
         self.b = Value(0, (), 'bias')
         self.nonlin = nonlin
-        global counter
-        self.id = counter
-        counter += 1
 
     def __call__(self, x):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
@@ -38,21 +32,10 @@ class Layer(Module):
 
     def __init__(self, nin, nout, **kwargs):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
-        self.nin = nin
-        self.nout = nout
-        global counter
-        self.id = counter
-        counter += 1
 
     def __call__(self, x):
         out = [n(x) for n in self.neurons]
         return out[0] if len(out) == 1 else out
-
-    def output_type(self):
-        if self.nout == 1:
-            return "double"
-        else:
-            return f"Vector<double, {self.nout}>"
 
     def parameters(self):
         return [p for n in self.neurons for p in n.parameters()]
@@ -65,11 +48,6 @@ class MLP(Module):
     def __init__(self, nin, nouts):
         sz = [nin] + nouts
         self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
-        self.nin = nin
-        self.nouts = nouts
-        global counter
-        self.id = counter
-        counter += 1
 
     def __call__(self, x):
         for layer in self.layers:
