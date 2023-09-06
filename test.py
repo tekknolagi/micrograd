@@ -1,18 +1,20 @@
-import argparse
 import _imp
+import argparse
 import collections
 import importlib
+import itertools
 import math
 import micrograd
 import os
 import random
 import shutil
 import struct
+import sys
 import tempfile
 import time
 from distutils import sysconfig
 from micrograd import nn as nn_interp
-from micrograd.engine import Value
+from micrograd.engine import Value, Max
 
 
 random.seed(1337)
@@ -27,7 +29,7 @@ class image:
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 PIXEL_LENGTH = IMAGE_HEIGHT * IMAGE_WIDTH
-DIM = PIXEL_LENGTH
+DIM = 100 # PIXEL_LENGTH
 
 
 class images:
@@ -78,32 +80,45 @@ def timer(lam, msg=""):
     return result
 
 
+def stable_softmax(output):
+    max_ = Max(output)
+    shiftx = [o-max_ for o in output]
+    exps = [o.exp() for o in shiftx]
+    sum_ = sum(exps)
+    return [o/sum_ for o in exps]
+
+
 db = timer(
     lambda: images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"),
     "Opening images...",
 )
 NUM_DIGITS = 10
-model = timer(lambda: nn_interp.MLP(DIM, [512, NUM_DIGITS]), "Building model...")
+model = timer(lambda: nn_interp.MLP(DIM, [20, NUM_DIGITS]), "Building model...")
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
 assert [i._id for i in inp] == list(range(inp[0]._id, inp[0]._id + len(inp)))
-out = model(inp)
+output = model(inp)
+softmax_output = stable_softmax(output)
 # NOTE: It's important that expected_onehot are all in sequence right next to
 # one another so we can set the label in training
 expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
 assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
-loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
+# loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, softmax_output))
+loss = -sum(exp*(act+0.1).log() for exp, act in zip(expected_onehot, softmax_output))
 topo = timer(lambda: loss.topo(), "Building topo...")
 # TODO(max): Figure out why there are (significant numbers of) duplicated
 # Values
+# topo = timer(
+#     lambda: list(dict.fromkeys(topo)), "Deduping..."
+# )  # dedup and maintain order
 num_nodes = len(topo)
-assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
-assert (
-    num_nodes == micrograd.engine.counter
-), f"{len(topo)} vs {micrograd.engine.counter}"
+# assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
+# assert (
+#     num_nodes == micrograd.engine.counter
+# ), f"{len(topo)} vs {micrograd.engine.counter}"
 
 
 def write_code():
@@ -133,6 +148,9 @@ def write_code():
             }}
         }}
         return maxind;
+    }}
+    double clip(double x) {{
+        return fmax(fmin(x, 10.0), -10.0);
     }}
     void init() {{
             """,
@@ -167,15 +185,26 @@ def write_code():
                 for line in o.backward_compile():
                     print(line, file=f)
             print("}", file=f)
-            print("void update(int step) {", file=f)
+            print("void update(int step, int batch_size) {", file=f)
             # TODO(max): It's not always 100; is this hard-coded for number of
             # training rounds in Karpathy's code?
             print(
-                "double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f
+                "double learning_rate = (1.0L - (0.9L * (double)step) / 100.0L)/5.0;", file=f
             )
             for o in model.parameters():
-                print(f"data[{o._id}] -= learning_rate * grad[{o._id}];", file=f)
+                print(f"{{ double grad_update = learning_rate * grad[{o._id}] / ((double)batch_size);", file=f)
+                print("if (isnan(grad_update)) exit(1);", file=f)
+                print("if (isinf(grad_update)) exit(1);", file=f)
+                # print("if (grad_update <= 0) {printf(\"zero\n\"); exit(1);}", file=f)
+                # print(f"""if (grad_update>0) printf("grad update (lr %lf grad %lf) is %lf\\n", learning_rate, grad[{o._id}], grad_update);""", file=f)
+                print(f"data[{o._id}] -= grad_update; }}", file=f)
             print("}", file=f)
+            print("PyObject* zero_non_params(PyObject* module) {", file=f)
+            params_set = frozenset(model.parameters())
+            for o in topo:
+                if o not in params_set:
+                    print(f"grad[{o._id}] = 0;", file=f)
+            print("Py_RETURN_NONE; }", file=f)
             print(
                 f"""\
     PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t nargs) {{
@@ -223,12 +252,22 @@ def write_code():
           Py_RETURN_NONE;
     }}
 
-    PyObject* update_wrapper(PyObject* module, PyObject* step_obj) {{
+    PyObject* update_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t nargs) {{
+          if (nargs != 2) {{
+                PyErr_Format(PyExc_TypeError, "expected 2 args: step, batch_size");
+                return NULL;
+          }}
+          PyObject* step_obj = args[0];
+          PyObject* batch_size_obj = args[1];
           int step = PyLong_AsLong(step_obj);
           if (step < 0 && PyErr_Occurred()) {{
                 return NULL;
           }}
-          update(step);
+          int batch_size = PyLong_AsLong(batch_size_obj);
+          if (batch_size < 0 && PyErr_Occurred()) {{
+                return NULL;
+          }}
+          update(step, batch_size);
           Py_RETURN_NONE;
     }}
 
@@ -242,6 +281,7 @@ def write_code():
                   return NULL;
           }}
           if (i >= {num_nodes}) {{
+                  fprintf(stderr, "index %ld (dim %d)\\n", i, {num_nodes});
                   PyErr_Format(PyExc_TypeError, "index out of bounds");
                   return NULL;
           }}
@@ -258,6 +298,7 @@ def write_code():
                   return NULL;
           }}
           if (i >= {num_nodes}) {{
+                  fprintf(stderr, "index %ld (dim %d)\\n", i, {num_nodes});
                   PyErr_Format(PyExc_TypeError, "index out of bounds");
                   return NULL;
           }}
@@ -267,8 +308,9 @@ def write_code():
     static PyMethodDef nn_methods[] = {{
           {{ "forward", (PyCFunction)forward_wrapper, METH_FASTCALL, "doc" }},
           {{ "zero_grad", (PyCFunction)zero_grad_wrapper, METH_NOARGS, "doc" }},
+          {{ "zero_non_params", (PyCFunction)zero_non_params, METH_NOARGS, "doc" }},
           {{ "backward", (PyCFunction)backward_wrapper, METH_NOARGS, "doc" }},
-          {{ "update", update_wrapper, METH_O, "doc" }},
+          {{ "update", (PyCFunction)update_wrapper, METH_FASTCALL, "doc" }},
           {{ "data", data_wrapper, METH_O, "doc" }},
           {{ "grad", grad_wrapper, METH_O, "doc" }},
           {{ NULL, NULL }},
@@ -306,19 +348,73 @@ losses = collections.deque((), maxlen=16)
 
 
 def loss_changing():
-    eps = 1
     if len(losses) < losses.maxlen:
         # We are early in the process; keep going.
         return True
     if any(math.isnan(loss) or math.isinf(loss) for loss in losses):
         # Stop iteration; something went wrong.
         return False
-    return max(losses) - min(losses) >= eps
+    return True
+    return nrounds < 200
+    # return max(losses) - min(losses) >= eps
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiled", action="store_true")
 args = parser.parse_args()
+
+# source_file = timer(lambda: write_code(), "Writing C code...")
+# # TODO(max): Bring back Extension stuff and customize compiler using
+# # https://shwina.github.io/custom-compiler-linker-extensions/
+# lib_file = "nn.so"
+# include_dir = sysconfig.get_python_inc()
+# timer(
+#     lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+#     "Compiling extension...",
+# )
+# spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
+# nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
+# nn.forward(0, bytes(range(NUM_DIGITS)))
+# data_compiled = [nn.data(o._id) for o in out]
+# nn.backward()
+# grads_compiled = [nn.grad(o._id) for o in out]
+# nn.update(0)
+# params_compiled = [nn.data(o._id) for o in model.parameters()]
+# 
+# expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
+# expected_onehot[0] = 1.0
+# outputs_interpreted = model(bytes(range(NUM_DIGITS)))
+# loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, outputs_interpreted))
+# loss.backward()
+# learning_rate = 1.0 - 0.9*0/100
+# for p in model.parameters():
+#     p.data -= learning_rate * p.grad
+# params_interpreted = [o.data for o in model.parameters()]
+# 
+# grads_interpreted = [o.grad for o in outputs_interpreted]
+# data_interpreted = [o.data for o in outputs_interpreted]
+# 
+# 
+# print("data interp:", data_interpreted)
+# print("data comp  :", data_compiled)
+# 
+# print("grad interp:", grads_interpreted)
+# print("grad comp  :", grads_compiled)
+# 
+# print("param interp:", params_interpreted[:5])
+# print("param comp  :", params_compiled[:5])
+
+import numpy as np
+
+
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.zip_longest(fillvalue=fillvalue, *args)
+
+
+BATCH_SIZE = 100
+
 
 if args.compiled:
     source_file = timer(lambda: write_code(), "Writing C code...")
@@ -327,38 +423,83 @@ if args.compiled:
     lib_file = "nn.so"
     include_dir = sysconfig.get_python_inc()
     timer(
-        lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"tcc -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
         "Compiling extension...",
     )
     spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
     nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
     print("Training...")
     nrounds = 0
+    batches = grouper(BATCH_SIZE, db)
     while loss_changing():
+        # nn.zero_grad()
+        # batch = next(batches)
+        # loss_sum = 0
+        # for im in batch:
+        #     nn.zero_non_params()
+        #     im_loss = nn.forward(im.label, im.pixels[:DIM])
+        #     assert not math.isnan(im_loss)
+        #     assert not math.isinf(im_loss)
+        #     loss_sum += im_loss
+        #     nn.backward()
+        # round_loss = loss_sum/BATCH_SIZE
+        # losses.append(round_loss)
+        # nn.update(nrounds, BATCH_SIZE)
+        # print(f"...round {nrounds:4d} loss {round_loss:.2f}")
+
+        # """
+        # for im in batch:
+        #     nn.forward()
+        # give batch size to update() so it can divide grad before multiplying by
+        #     learning_rate
+        #     TODO(max): prove that all the intermediate gradients can be kept
+        #     around, that the += is safe
+        # zero_grad()
+        # do NOT zero until after update
+        # """
         im = next(db)
         loss = nn.forward(im.label, im.pixels[:DIM])
         print(f"...round {nrounds:4d} loss {loss:.2f}")
+        # guesses=[nn.data(x._id) for x in softmax_output]
+        # print("    ", im.label, np.argmax(guesses), guesses)
         losses.append(loss)
         nn.zero_grad()
         nn.backward()
-        nn.update(nrounds)
+        nn.update(nrounds, 1)
         nrounds += 1
 else:
     nn = model
     print("Training...")
     nrounds = 0
+    batches = grouper(BATCH_SIZE, db)
     while loss_changing():
-        im = next(db)
-        out = nn(im.pixels[:DIM])
-        expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
-        expected_onehot[im.label] = 1.0
-        loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
-        print(f"...round {nrounds:4d} loss {loss.data:.2f}")
-        losses.append(loss.data)
         nn.zero_grad()
-        loss.backward()
-        # nn.update(nrounds)
+        batch = next(batches)
+        loss_sum = 0
+        for im in batch:
+            output = nn(im.pixels[:DIM])
+            softmax_output = stable_softmax(output)
+            expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
+            expected_onehot[im.label] = 1.0
+            loss = -sum(exp*act.log() for exp, act in zip(expected_onehot, softmax_output))
+            loss.backward()
+            print(f"...image loss {loss.data:.2f}")
+            loss_sum += loss.data
+        round_loss = loss_sum/BATCH_SIZE
         learning_rate = 1.0 - 0.9*nrounds/100
         for p in model.parameters():
-            p.data -= learning_rate * p.grad
+            p.data -= learning_rate * p.grad / BATCH_SIZE
+        print(f"...round {nrounds:4d} loss {round_loss:.2f}")
+        # out = nn(im.pixels[:DIM])
+        # expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
+        # expected_onehot[im.label] = 1.0
+        # loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
+        # print(f"...round {nrounds:4d} loss {loss.data:.2f}")
+        # losses.append(loss.data)
+        # nn.zero_grad()
+        # loss.backward()
+        # # nn.update(nrounds)
+        # learning_rate = 1.0 - 0.9*nrounds/100
+        # for p in model.parameters():
+        #     p.data -= learning_rate * p.grad
         nrounds += 1

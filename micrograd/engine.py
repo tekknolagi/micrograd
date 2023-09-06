@@ -78,35 +78,36 @@ class Value:
         return f"grad[{self._id}]"
 
     def backward_compile(self):
-        if self._op in ('', 'weight', 'bias', 'input'):
+        if not self._prev:
+            assert self._op in ('', 'weight', 'bias', 'input')
             # Nothing to propagate to children.
             assert not self._prev
             return []
         if self._op == '*':
             left, right = self._prev
             return [
-                f"{left.getgrad()} += {right.var()}*{self.getgrad()};",
-                f"{right.getgrad()} += {left.var()}*{self.getgrad()};",
+                f"{left.getgrad()} += clip({right.var()}*{self.getgrad()});",
+                f"{right.getgrad()} += clip({left.var()}*{self.getgrad()});",
                 ]
         if self._op == '+':
             left, right = self._prev
             return [
-                f"{left.getgrad()} += {self.getgrad()};",
-                f"{right.getgrad()} += {self.getgrad()};",
+                f"{left.getgrad()} += clip({self.getgrad()});",
+                f"{right.getgrad()} += clip({self.getgrad()});",
                 ]
         if self._op == 'ReLU':
             prev, = self._prev
-            return [f"{prev.getgrad()} += ({self.var()} > 0)*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(({self.var()} >0)*{self.getgrad()});"]
         if self._op.startswith('**'):
             exponent = float(self._op[2:])
             prev, = self._prev
-            return [f"{prev.getgrad()} += {exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip({exponent}*pow({prev.var()}, {exponent-1})*{self.getgrad()});"]
         if self._op == 'exp':
             prev, = self._prev
-            return [f"{prev.getgrad()} += exp({prev.var()})*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(exp({prev.var()})*{self.getgrad()});"]
         if self._op == 'log':
             prev, = self._prev
-            return [f"{prev.getgrad()} += 1.0L/{prev.var()}*{self.getgrad()};"]
+            return [f"{prev.getgrad()} += clip(1.0L/{prev.var()}*{self.getgrad()});"]
         raise NotImplementedError(self._op)
 
     def __add__(self, other):
@@ -159,6 +160,8 @@ class Value:
                     if peek not in visited:
                         result.append(peek)
                         visited.add(peek)
+                    # else:
+                    #     assert peek._op in ('', 'weight', 'bias', 'input'), f"uh oh {peek._op}"
                     last_visited = stack.pop()
         return result
 
@@ -173,6 +176,8 @@ class Value:
                 for child in v._prev:
                     build_topo(child)
                 topo.append(v)
+            # else:
+            #     assert v._op in ('', 'weight', 'bias', 'input'), f"uh oh {v._op}"
         build_topo(self)
 
         # go one variable at a time and apply the chain rule to get its gradient
@@ -226,7 +231,7 @@ class Max(Value):
     def backward_compile(self):
         prev_id = (str(v._id) for v in self._prev)
         return [
-                f"double input{self._id}[] = {{ {', '.join(prev_id)} }};",
+                f"{{ double input{self._id}[] = {{ {', '.join(prev_id)} }};",
                 f"int idx{self._id} = argmax({len(self._prev)}, input{self._id});",
-                f"grad[idx{self._id}] += {self.getgrad()};",
+                f"grad[idx{self._id}] += {self.getgrad()}; }}",
                 ]
