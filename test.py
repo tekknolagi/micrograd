@@ -133,9 +133,11 @@ def write_code():
 #include <Python.h>
     double data[{num_nodes}];
     double grad[{num_nodes}];
-    static double relu(double x) {{ if (x < 0) {{ return 0; }} else {{ return x; }} }}
+    static inline __attribute__((always_inline)) double relu(double x) {{
+        return fmax(x, 0);
+    }}
     static inline __attribute__((always_inline)) double clip(double x) {{
-        return fmax(fmin(x, 10), -10);
+        return x;
     }}
     void init() {{
             """,
