@@ -369,10 +369,10 @@ for epoch in range(num_epochs):
         for im in batch:
             nn.zero_grad_non_params()
             im_loss = nn.forward(im.label, im.pixels)
-            # outs = [nn.data(o._id) for o in softmax_output]
-            # assert not any(math.isnan(o) for o in outs)
-            # assert not math.isnan(im_loss)
-            # assert not math.isinf(im_loss)
+            outs = [nn.data(o._id) for o in softmax_output]
+            assert not any(math.isnan(o) for o in outs)
+            assert not math.isnan(im_loss)
+            assert not math.isinf(im_loss)
             batch_loss += im_loss
             epoch_loss += im_loss
             nn.backward()
