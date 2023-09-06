@@ -199,13 +199,6 @@ def write_code():
                 # print(f"""if (grad_update>0) printf("grad update (lr %lf grad %lf) is %lf\\n", learning_rate, grad[{o._id}], grad_update);""", file=f)
                 print(f"data[{o._id}] -= grad_update; }}", file=f)
             print("}", file=f)
-            print("PyObject* zero_grad_non_params(PyObject* module) {", file=f)
-            params_set = frozenset(model.parameters())
-            for o in topo:
-                if o not in params_set:
-                    # No need to zero
-                    assert '[' not in o.getgrad()
-            print("Py_RETURN_NONE; }", file=f)
             print(
                 f"""\
     PyObject* forward_wrapper(PyObject *module, PyObject *const *args, Py_ssize_t nargs) {{
@@ -309,7 +302,6 @@ def write_code():
     static PyMethodDef nn_methods[] = {{
           {{ "forward", (PyCFunction)forward_wrapper, METH_FASTCALL, "doc" }},
           {{ "zero_grad", (PyCFunction)zero_grad_wrapper, METH_NOARGS, "doc" }},
-          {{ "zero_grad_non_params", (PyCFunction)zero_grad_non_params, METH_NOARGS, "doc" }},
           {{ "backward", (PyCFunction)backward_wrapper, METH_NOARGS, "doc" }},
           {{ "update", (PyCFunction)update_wrapper, METH_FASTCALL, "doc" }},
           {{ "data", data_wrapper, METH_O, "doc" }},
@@ -374,7 +366,6 @@ for epoch in range(num_epochs):
         nn.zero_grad()
         batch_loss = 0
         for im in batch:
-            nn.zero_grad_non_params()
             im_loss = nn.forward(im.label, im.pixels)
             outs = [nn.data(o._id) for o in softmax_output]
             assert not any(math.isnan(o) for o in outs)
