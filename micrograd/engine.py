@@ -144,21 +144,17 @@ class Value:
         return out
 
     def topo(self):
-        seen = set()
-        stack = []    # path variable is gone, stack and order are new
-        order = []    # order will be in reverse order at first
-        q = [self]
-        while q:
-            v = q.pop()
-            if v not in seen:
-                seen.add(v) # no need to append to path any more
-                q.extend(v._prev)
-
-                while stack and v not in stack[-1]._prev: # new stuff here!
-                    order.append(stack.pop())
-                stack.append(v)
-
-        return list(reversed(stack + order[::-1]))   # new return value!
+        # topological order all of the children in the graph
+        topo = []
+        visited = set()
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        build_topo(self)
+        return topo
 
 
     def backward(self):
@@ -172,8 +168,6 @@ class Value:
                 for child in v._prev:
                     build_topo(child)
                 topo.append(v)
-            # else:
-            #     assert v._op in ('', 'weight', 'bias', 'input'), f"uh oh {v._op}"
         build_topo(self)
 
         # go one variable at a time and apply the chain rule to get its gradient

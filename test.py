@@ -4,6 +4,7 @@ import collections
 import functools
 import importlib
 import itertools
+import numpy as np
 import math
 import micrograd
 import os
@@ -132,9 +133,9 @@ def write_code():
 #include <Python.h>
     double data[{num_nodes}];
     double grad[{num_nodes}];
-    double relu(double x) {{ if (x < 0) {{ return 0; }} else {{ return x; }} }}
-    double clip(double x) {{
-        return fmax(fmin(x, 10.0), -10.0);
+    static double relu(double x) {{ if (x < 0) {{ return 0; }} else {{ return x; }} }}
+    static inline __attribute__((always_inline)) double clip(double x) {{
+        return fmax(fmin(x, 10), -10);
     }}
     void init() {{
             """,
@@ -175,21 +176,21 @@ def write_code():
             print("void update(int step, int batch_size) {", file=f)
             # TODO(max): It's not always 100; is this hard-coded for number of
             # training rounds in Karpathy's code?
-            print("double initial_lrate = 0.01;", file=f)
-            print("double decay = 0.01;", file=f)
+            print("double initial_lrate = 1;", file=f)
+            print("double decay = 0.1;", file=f)
             print(
-                    # "double learning_rate = 2.0L - (0.9L * (double)step) / 100.0L;", file=f
-                    "double learning_rate = initial_lrate * (1 / (1 + decay * step));", file=f,
+                    "double learning_rate = 1.0; // initial_lrate * (1 / (1 + decay * step));", file=f,
             )
+            print("int idx = 0;", file=f)
             for o in model.parameters():
                 assert o._op in ('weight', 'bias'), repr(o._op)
                 assert '[' in o.getgrad()
                 print(f"{{ double grad_update = learning_rate * {o.getgrad()};", file=f)
-                print("if (isnan(grad_update)) { printf(\"FOUND NAN\\n\"); exit(1); }", file=f)
-                print("if (isinf(grad_update)) { printf(\"FOUND INF\\n\"); exit(1); }", file=f)
+                print("if (isnan(grad_update)) { printf(\"FOUND NAN %d\\n\", idx); exit(1); }", file=f)
+                print("if (isinf(grad_update)) { printf(\"FOUND INF %d\\n\", idx); exit(1); }", file=f)
                 # print("if (grad_update <= 0) {printf(\"zero\n\"); exit(1);}", file=f)
                 # print(f"""if (grad_update>0) printf("grad update (lr %lf grad %lf) is %lf\\n", learning_rate, grad[{o._id}], grad_update);""", file=f)
-                print(f"data[{o._id}] -= grad_update; }}", file=f)
+                print(f"data[{o._id}] -= grad_update; idx++; }}", file=f)
             print("}", file=f)
             print(
                 f"""\
@@ -336,30 +337,41 @@ def grouper(n, iterable, fillvalue=None):
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
 
-source_file = timer(lambda: write_code(), "Writing C code...")
-# TODO(max): Bring back Extension stuff and customize compiler using
-# https://shwina.github.io/custom-compiler-linker-extensions/
+parser = argparse.ArgumentParser()
+parser.add_argument("--use-existing", action='store_true')
+args = parser.parse_args()
+
 lib_file = "nn.so"
-include_dir = sysconfig.get_python_inc()
-timer(
-    lambda: os.system(f"tcc -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-    "Compiling extension...",
-)
+if not args.use_existing:
+    source_file = timer(lambda: write_code(), "Writing C code...")
+    # TODO(max): Bring back Extension stuff and customize compiler using
+    # https://shwina.github.io/custom-compiler-linker-extensions/
+    include_dir = sysconfig.get_python_inc()
+    timer(
+        lambda: os.system(f"clang -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        "Compiling extension...",
+    )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
-num_epochs = 10
+num_epochs = 10000
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = 10000
+batch_size = 100
 for epoch in range(num_epochs):
     epoch_loss = 0
     before = time.perf_counter()
-    for batch in grouper(batch_size, db):
+    shuffled = db.copy()
+    random.shuffle(shuffled)
+    for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
         nn.zero_grad()
         batch_loss = 0
+        num_correct = 0
         for im in batch:
             im_loss = nn.forward(im.label, im.pixels)
             outs = [nn.data(o._id) for o in softmax_output]
+            guess = np.argmax(outs)
+            if guess == im.label:
+                num_correct += 1
             assert not any(math.isnan(o) for o in outs)
             assert not math.isnan(im_loss)
             assert not math.isinf(im_loss)
@@ -367,8 +379,10 @@ for epoch in range(num_epochs):
             epoch_loss += im_loss
             nn.backward()
         batch_loss /= batch_size
+        accuracy = num_correct/batch_size
         nn.update(epoch, batch_size)
-        print(f"batch loss {batch_loss:.2f}")
+        if batch_idx % 50 == 0:
+            print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
     after = time.perf_counter()
     delta = after - before
     epoch_loss /= len(db)
