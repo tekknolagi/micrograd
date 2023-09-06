@@ -175,7 +175,10 @@ def write_code():
                     print(line, file=f)
             print("}", file=f)
             print("void backward() {", file=f)
-            print(f"grad[{loss._id}] = 1;", file=f)
+            for o in reversed(topo):
+                if o._op not in ('weight', 'bias'):
+                    print(f"double grad{o._id};", file=f)
+            print(f"{loss.getgrad()} = 1;", file=f)
             for o in reversed(topo):
                 for line in o.backward_compile():
                     print(line, file=f)
@@ -187,7 +190,9 @@ def write_code():
                 "double learning_rate = 1.0L - (0.9L * (double)step) / 100.0L;", file=f
             )
             for o in model.parameters():
-                print(f"{{ double grad_update = learning_rate * grad[{o._id}] / ((double)batch_size);", file=f)
+                assert o._op in ('weight', 'bias'), repr(o._op)
+                assert '[' in o.getgrad()
+                print(f"{{ double grad_update = learning_rate * {o.getgrad()} / ((double)batch_size);", file=f)
                 print("if (isnan(grad_update)) exit(1);", file=f)
                 print("if (isinf(grad_update)) exit(1);", file=f)
                 # print("if (grad_update <= 0) {printf(\"zero\n\"); exit(1);}", file=f)
@@ -198,7 +203,8 @@ def write_code():
             params_set = frozenset(model.parameters())
             for o in topo:
                 if o not in params_set:
-                    print(f"grad[{o._id}] = 0;", file=f)
+                    # No need to zero
+                    assert '[' not in o.getgrad()
             print("Py_RETURN_NONE; }", file=f)
             print(
                 f"""\
