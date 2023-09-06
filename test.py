@@ -359,7 +359,7 @@ timer(
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
-num_epochs = 100
+num_epochs = 10
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
 batch_size = 10000
 for epoch in range(num_epochs):
