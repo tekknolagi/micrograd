@@ -127,6 +127,7 @@ def write_code():
         with open(file_path, "w+") as f:
             print(
                 f"""\
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -182,8 +183,8 @@ def write_code():
                 assert o._op in ('weight', 'bias'), repr(o._op)
                 assert '[' in o.getgrad()
                 print(f"{{ double grad_update = learning_rate * {o.getgrad()} / ((double)batch_size);", file=f)
-                print("if (isnan(grad_update)) { printf(\"FOUND NAN %d\\n\", idx); exit(1); }", file=f)
-                print("if (isinf(grad_update)) { printf(\"FOUND INF %d\\n\", idx); exit(1); }", file=f)
+                print("assert(!isnan(grad_update));", file=f)
+                print("assert(!isinf(grad_update));", file=f)
                 print(f"data[{o._id}] -= grad_update; idx++; }}", file=f)
             print("}", file=f)
             print(
