@@ -7,7 +7,7 @@ class Value:
         self.grad = 0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
-        self._prev = set(_children)
+        self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
     def __add__(self, other):
@@ -50,6 +50,30 @@ class Value:
         out._backward = _backward
 
         return out
+
+    def forward(self):
+        # topological order all of the children in the graph
+        topo = []
+        visited = set()
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        build_topo(self)
+
+        for v in topo:
+            if v._op == '':
+                pass
+            elif v._op == '+':
+                v.data = v._prev[0].data + v._prev[1].data
+            elif v._op == '*':
+                v.data = v._prev[0].data * v._prev[1].data
+            elif v._op == 'ReLU':
+                v.data = max(v._prev[0].data, 0)
+            else:
+                raise NotImplementedError(repr(v._op))
 
     def backward(self):
 
