@@ -351,32 +351,35 @@ source_file = timer(lambda: write_code(), "Writing C code...")
 lib_file = "nn.so"
 include_dir = sysconfig.get_python_inc()
 timer(
-    lambda: os.system(f"clang -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+    lambda: os.system(f"tcc -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
     "Compiling extension...",
 )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
-nrounds = 0
 num_epochs = 100
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = len(db)
+batch_size = 10000
 for epoch in range(num_epochs):
-    nn.zero_grad()
-    loss_sum = 0
+    epoch_loss = 0
     before = time.perf_counter()
-    for im in db:
-        nn.zero_non_params()
-        im_loss = nn.forward(im.label, im.pixels)
-        outs = [nn.data(o._id) for o in softmax_output]
-        assert not any(math.isnan(o) for o in outs)
-        assert not math.isnan(im_loss)
-        assert not math.isinf(im_loss)
-        loss_sum += im_loss
-        nn.backward()
+    for batch in grouper(batch_size, db):
+        nn.zero_grad()
+        batch_loss = 0
+        for im in batch:
+            nn.zero_non_params()
+            im_loss = nn.forward(im.label, im.pixels)
+            # outs = [nn.data(o._id) for o in softmax_output]
+            # assert not any(math.isnan(o) for o in outs)
+            # assert not math.isnan(im_loss)
+            # assert not math.isinf(im_loss)
+            batch_loss += im_loss
+            epoch_loss += im_loss
+            nn.backward()
+        batch_loss /= batch_size
+        nn.update(epoch, batch_size)
+        print(f"batch loss {batch_loss:.2f}")
     after = time.perf_counter()
     delta = after - before
-    round_loss = loss_sum/batch_size
-    nn.update(nrounds, batch_size)
-    print(f"...epoch {nrounds:4d} loss {round_loss:.2f} (took {delta} sec)")
-    nrounds += 1
+    epoch_loss /= len(db)
+    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
