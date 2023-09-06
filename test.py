@@ -348,9 +348,9 @@ if not args.use_existing:
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
-num_epochs = 10000
+num_epochs = 100
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = 100
+batch_size = 1000
 for epoch in range(num_epochs):
     epoch_loss = 0
     before = time.perf_counter()
@@ -375,7 +375,7 @@ for epoch in range(num_epochs):
         batch_loss /= batch_size
         accuracy = num_correct/batch_size
         nn.update(epoch, batch_size)
-        if batch_idx % 50 == 0:
+        if batch_idx % 20 == 0:
             print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
     after = time.perf_counter()
     delta = after - before
