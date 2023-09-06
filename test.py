@@ -1,6 +1,7 @@
 import _imp
 import argparse
 import collections
+import functools
 import importlib
 import itertools
 import math
@@ -84,7 +85,7 @@ def timer(lam, msg=""):
 
 
 def stable_softmax(output):
-    max_ = Max(output)
+    max_ = functools.reduce(Max, output)
     shiftx = [o-max_ for o in output]
     exps = [o.exp() for o in shiftx]
     sum_ = sum(exps)

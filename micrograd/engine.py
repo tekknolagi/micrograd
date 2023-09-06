@@ -75,6 +75,8 @@ class Value:
         raise NotImplementedError(self._op)
 
     def getgrad(self):
+        if self._op not in ('weight', 'bias'):
+            return f"grad{self._id}"
         return f"grad[{self._id}]"
 
     def backward_compile(self):
@@ -214,18 +216,19 @@ class Value:
 
 
 class Max(Value):
-    def __init__(self, values):
-        super().__init__(max(v.data for v in values), tuple(values), 'max')
+    def __init__(self, left, right):
+        super().__init__(max(left.data, right.data), (left, right), 'max')
 
     def compile(self):
-        prev = (v.var() for v in self._prev)
-        val = functools.reduce(lambda x, y: f"fmax({x}, {y})", prev)
-        return self.set(val)
+        left, right = self._prev
+        return self.set(f"fmax({left.var()}, {right.var()})")
 
     def backward_compile(self):
-        prev_id = (str(v._id) for v in self._prev)
-        return [
-                f"{{ double input{self._id}[] = {{ {', '.join(prev_id)} }};",
-                f"int idx{self._id} = argmax({len(self._prev)}, input{self._id});",
-                f"grad[idx{self._id}] += {self.getgrad()}; }}",
+        left, right = self._prev
+        return [f"""\
+if ({left.var()} > {right.var()}) {{
+    {left.getgrad()} += {self.getgrad()};
+}} else {{
+    {right.getgrad()} += {self.getgrad()};
+}}"""
                 ]
