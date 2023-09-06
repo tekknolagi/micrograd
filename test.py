@@ -143,9 +143,6 @@ def write_code():
         }}
         return maxind;
     }}
-    double clip(double x) {{
-        return fmax(fmin(x, 10.0), -10.0);
-    }}
     void init() {{
             """,
                 file=f,
