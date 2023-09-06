@@ -343,7 +343,7 @@ if not args.use_existing:
     # https://shwina.github.io/custom-compiler-linker-extensions/
     include_dir = sysconfig.get_python_inc()
     timer(
-        lambda: os.system(f"clang -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"clang -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
         "Compiling extension...",
     )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
