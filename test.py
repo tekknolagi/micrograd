@@ -29,7 +29,7 @@ class image:
 IMAGE_HEIGHT = 28
 IMAGE_WIDTH = 28
 PIXEL_LENGTH = IMAGE_HEIGHT * IMAGE_WIDTH
-DIM = 100 # PIXEL_LENGTH
+DIM = PIXEL_LENGTH
 
 
 class images:
@@ -53,8 +53,11 @@ class images:
         assert struct.unpack(">L", ncols) == (IMAGE_WIDTH,)
 
     def read_image(self):
-        label = int.from_bytes(self.labels.read(1), "big")
+        label_bytes = self.labels.read(1)
+        assert label_bytes
+        label = int.from_bytes(label_bytes, "big")
         pixels = self.images.read(PIXEL_LENGTH)
+        assert pixels
         self.idx += 1
         return image(label, pixels)
 
@@ -88,12 +91,8 @@ def stable_softmax(output):
     return [o/sum_ for o in exps]
 
 
-db = timer(
-    lambda: images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"),
-    "Opening images...",
-)
 NUM_DIGITS = 10
-model = timer(lambda: nn_interp.MLP(DIM, [20, NUM_DIGITS]), "Building model...")
+model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
@@ -107,18 +106,13 @@ assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
 # loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, softmax_output))
-loss = -sum(exp*(act+0.1).log() for exp, act in zip(expected_onehot, softmax_output))
+loss = -sum(exp*act.log() for exp, act in zip(expected_onehot, softmax_output))
 topo = timer(lambda: loss.topo(), "Building topo...")
-# TODO(max): Figure out why there are (significant numbers of) duplicated
-# Values
-# topo = timer(
-#     lambda: list(dict.fromkeys(topo)), "Deduping..."
-# )  # dedup and maintain order
 num_nodes = len(topo)
-# assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
-# assert (
-#     num_nodes == micrograd.engine.counter
-# ), f"{len(topo)} vs {micrograd.engine.counter}"
+assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
+assert (
+    num_nodes == micrograd.engine.counter
+), f"{len(topo)} vs {micrograd.engine.counter}"
 
 
 def write_code():
@@ -344,68 +338,6 @@ def write_code():
         shutil.copyfile(f.name, local_name)
     return local_name
 
-losses = collections.deque((), maxlen=16)
-
-
-def loss_changing():
-    if len(losses) < losses.maxlen:
-        # We are early in the process; keep going.
-        return True
-    if any(math.isnan(loss) or math.isinf(loss) for loss in losses):
-        # Stop iteration; something went wrong.
-        return False
-    return True
-    return nrounds < 200
-    # return max(losses) - min(losses) >= eps
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--compiled", action="store_true")
-args = parser.parse_args()
-
-# source_file = timer(lambda: write_code(), "Writing C code...")
-# # TODO(max): Bring back Extension stuff and customize compiler using
-# # https://shwina.github.io/custom-compiler-linker-extensions/
-# lib_file = "nn.so"
-# include_dir = sysconfig.get_python_inc()
-# timer(
-#     lambda: os.system(f"tcc -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#     "Compiling extension...",
-# )
-# spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
-# nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
-# nn.forward(0, bytes(range(NUM_DIGITS)))
-# data_compiled = [nn.data(o._id) for o in out]
-# nn.backward()
-# grads_compiled = [nn.grad(o._id) for o in out]
-# nn.update(0)
-# params_compiled = [nn.data(o._id) for o in model.parameters()]
-# 
-# expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
-# expected_onehot[0] = 1.0
-# outputs_interpreted = model(bytes(range(NUM_DIGITS)))
-# loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, outputs_interpreted))
-# loss.backward()
-# learning_rate = 1.0 - 0.9*0/100
-# for p in model.parameters():
-#     p.data -= learning_rate * p.grad
-# params_interpreted = [o.data for o in model.parameters()]
-# 
-# grads_interpreted = [o.grad for o in outputs_interpreted]
-# data_interpreted = [o.data for o in outputs_interpreted]
-# 
-# 
-# print("data interp:", data_interpreted)
-# print("data comp  :", data_compiled)
-# 
-# print("grad interp:", grads_interpreted)
-# print("grad comp  :", grads_compiled)
-# 
-# print("param interp:", params_interpreted[:5])
-# print("param comp  :", params_compiled[:5])
-
-import numpy as np
-
 
 def grouper(n, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
@@ -413,93 +345,38 @@ def grouper(n, iterable, fillvalue=None):
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
 
-BATCH_SIZE = 100
-
-
-if args.compiled:
-    source_file = timer(lambda: write_code(), "Writing C code...")
-    # TODO(max): Bring back Extension stuff and customize compiler using
-    # https://shwina.github.io/custom-compiler-linker-extensions/
-    lib_file = "nn.so"
-    include_dir = sysconfig.get_python_inc()
-    timer(
-        lambda: os.system(f"tcc -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-        "Compiling extension...",
-    )
-    spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
-    nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
-    print("Training...")
-    nrounds = 0
-    batches = grouper(BATCH_SIZE, db)
-    while loss_changing():
-        # nn.zero_grad()
-        # batch = next(batches)
-        # loss_sum = 0
-        # for im in batch:
-        #     nn.zero_non_params()
-        #     im_loss = nn.forward(im.label, im.pixels[:DIM])
-        #     assert not math.isnan(im_loss)
-        #     assert not math.isinf(im_loss)
-        #     loss_sum += im_loss
-        #     nn.backward()
-        # round_loss = loss_sum/BATCH_SIZE
-        # losses.append(round_loss)
-        # nn.update(nrounds, BATCH_SIZE)
-        # print(f"...round {nrounds:4d} loss {round_loss:.2f}")
-
-        # """
-        # for im in batch:
-        #     nn.forward()
-        # give batch size to update() so it can divide grad before multiplying by
-        #     learning_rate
-        #     TODO(max): prove that all the intermediate gradients can be kept
-        #     around, that the += is safe
-        # zero_grad()
-        # do NOT zero until after update
-        # """
-        im = next(db)
-        loss = nn.forward(im.label, im.pixels[:DIM])
-        print(f"...round {nrounds:4d} loss {loss:.2f}")
-        # guesses=[nn.data(x._id) for x in softmax_output]
-        # print("    ", im.label, np.argmax(guesses), guesses)
-        losses.append(loss)
-        nn.zero_grad()
+source_file = timer(lambda: write_code(), "Writing C code...")
+# TODO(max): Bring back Extension stuff and customize compiler using
+# https://shwina.github.io/custom-compiler-linker-extensions/
+lib_file = "nn.so"
+include_dir = sysconfig.get_python_inc()
+timer(
+    lambda: os.system(f"clang -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+    "Compiling extension...",
+)
+spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
+nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
+print("Training...")
+nrounds = 0
+num_epochs = 100
+db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+batch_size = len(db)
+for epoch in range(num_epochs):
+    nn.zero_grad()
+    loss_sum = 0
+    before = time.perf_counter()
+    for im in db:
+        nn.zero_non_params()
+        im_loss = nn.forward(im.label, im.pixels)
+        outs = [nn.data(o._id) for o in softmax_output]
+        assert not any(math.isnan(o) for o in outs)
+        assert not math.isnan(im_loss)
+        assert not math.isinf(im_loss)
+        loss_sum += im_loss
         nn.backward()
-        nn.update(nrounds, 1)
-        nrounds += 1
-else:
-    nn = model
-    print("Training...")
-    nrounds = 0
-    batches = grouper(BATCH_SIZE, db)
-    while loss_changing():
-        nn.zero_grad()
-        batch = next(batches)
-        loss_sum = 0
-        for im in batch:
-            output = nn(im.pixels[:DIM])
-            softmax_output = stable_softmax(output)
-            expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
-            expected_onehot[im.label] = 1.0
-            loss = -sum(exp*act.log() for exp, act in zip(expected_onehot, softmax_output))
-            loss.backward()
-            print(f"...image loss {loss.data:.2f}")
-            loss_sum += loss.data
-        round_loss = loss_sum/BATCH_SIZE
-        learning_rate = 1.0 - 0.9*nrounds/100
-        for p in model.parameters():
-            p.data -= learning_rate * p.grad / BATCH_SIZE
-        print(f"...round {nrounds:4d} loss {round_loss:.2f}")
-        # out = nn(im.pixels[:DIM])
-        # expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
-        # expected_onehot[im.label] = 1.0
-        # loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, out))
-        # print(f"...round {nrounds:4d} loss {loss.data:.2f}")
-        # losses.append(loss.data)
-        # nn.zero_grad()
-        # loss.backward()
-        # # nn.update(nrounds)
-        # learning_rate = 1.0 - 0.9*nrounds/100
-        # for p in model.parameters():
-        #     p.data -= learning_rate * p.grad
-        nrounds += 1
+    after = time.perf_counter()
+    delta = after - before
+    round_loss = loss_sum/batch_size
+    nn.update(nrounds, batch_size)
+    print(f"...epoch {nrounds:4d} loss {round_loss:.2f} (took {delta} sec)")
+    nrounds += 1
