@@ -185,7 +185,7 @@ def write_code():
             for o in model.parameters():
                 assert o._op in ('weight', 'bias'), repr(o._op)
                 assert '[' in o.getgrad()
-                print(f"{{ double grad_update = learning_rate * {o.getgrad()};", file=f)
+                print(f"{{ double grad_update = learning_rate * {o.getgrad()} / ((double)batch_size);", file=f)
                 print("if (isnan(grad_update)) { printf(\"FOUND NAN %d\\n\", idx); exit(1); }", file=f)
                 print("if (isinf(grad_update)) { printf(\"FOUND INF %d\\n\", idx); exit(1); }", file=f)
                 # print("if (grad_update <= 0) {printf(\"zero\n\"); exit(1);}", file=f)
