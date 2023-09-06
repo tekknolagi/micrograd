@@ -65,3 +65,22 @@ def test_more_ops():
     # backward pass went well
     assert abs(amg.grad - apt.grad.item()) < tol
     assert abs(bmg.grad - bpt.grad.item()) < tol
+
+
+def test_duplicate_backprop():
+    a = Value(1.0)
+    b = a + 4
+    c = (b*3)+(b*5)
+    c.backward()
+    assert a.grad == 8.
+    assert b.grad == 8.
+    assert c.grad == 1.
+
+
+    a = torch.tensor([1.], requires_grad=True)
+    b = a + 4; b.retain_grad()
+    c = (b*3)+(b*5); c.retain_grad()
+    c.backward()
+    assert a.grad.item() == 8.
+    assert b.grad.item() == 8.
+    assert c.grad.item() == 1.
