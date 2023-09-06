@@ -215,10 +215,8 @@ class Max(Value):
 
     def backward_compile(self):
         left, right = self._prev
-        return [f"""\
-if ({left.var()} > {right.var()}) {{
-    {left.getgrad()} += {self.getgrad()};
-}} else {{
-    {right.getgrad()} += {self.getgrad()};
-}}"""
-                ]
+        return [f"if ({left.var()} > {right.var()}) {{"] +\
+                left.setgrad(f"{self.getgrad()}") +\
+                ["} else {"] +\
+                right.setgrad(f"{self.getgrad()}") +\
+                ["}"]
