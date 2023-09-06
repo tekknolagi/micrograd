@@ -92,7 +92,7 @@ def stable_softmax(output):
 
 
 NUM_DIGITS = 10
-model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
+model = timer(lambda: nn_interp.MLP(DIM, [50, 50, NUM_DIGITS]), "Building model...")
 # NOTE: It's important that input are all in sequence right next to one another
 # so we can set the input in training
 inp = [Value(0, (), "input") for _ in range(DIM)]
