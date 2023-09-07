@@ -23,8 +23,6 @@ class Tensor:
         out = Tensor(self.data @ other.data, (self, other), '@')
         def _backward():
             self.grad += out.grad @ other.data.T
-            print("matmul of", self.data.shape, "and", other.data.shape, "produces", out.data.shape)
-            print("weight", other.grad.shape, "input", self.data.shape, f"(transposed {self.data.T.shape}) out", out.grad.shape)
             other.grad += self.data.T @ out.grad
         out._backward = _backward
         return out
@@ -77,7 +75,8 @@ class Layer(Module):
 
     def __init__(self, nin, nout, nonlin):
         self.W = Tensor(np.random.uniform(-1,1,(nin,nout)), (), 'W')
-        self.b = Tensor(np.random.uniform(-1,1,(nout,)), (), 'b')
+        b = np.random.uniform(-1,1,(nout,))
+        self.b = Tensor(np.expand_dims(b, axis=0), (), 'b')
         self.nonlin = nonlin
 
     def __call__(self, x):
@@ -119,7 +118,7 @@ DIM = PIXEL_LENGTH
 class image:
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = np.array([float(p) for p in pixels])
+        self.pixels = np.expand_dims(np.array([float(p) for p in pixels]), axis=0)
 
 
 class images:
