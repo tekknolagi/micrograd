@@ -71,7 +71,7 @@ class Tensor:
     def exp(self):
         out = Tensor(np.exp(self.data), (self,), 'exp')
         def _backward():
-            self.grad += np.exp(self.data) @ out.grad
+            self.grad += np.exp(self.data) * out.grad
         out._backward = _backward
         return out
 

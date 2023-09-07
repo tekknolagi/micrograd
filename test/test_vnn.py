@@ -1,3 +1,4 @@
+import math
 import torch
 import numpy as np
 from micrograd.vnn import Tensor as VTensor
@@ -137,4 +138,30 @@ def test_matmul():
     assert eq(x0.grad, [[7, 8, 9], [7, 8, 9]])
     assert eq(x0.grad, x1.grad)
     assert eq(y0.grad, y1.grad)
+    assert eq(z0.grad, z1.grad)
+
+
+def test_exp():
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    expected = [
+        [math.e**1, math.e**2, math.e**3],
+        [math.e**4, math.e**5, math.e**6],
+    ]
+    x0 = VTensor(x)
+    z0 = x0.exp()
+    assert eq(x0.grad, [[0, 0, 0], [0, 0, 0]])
+    assert eq(z0.data, expected)
+
+    x1 = TTensor(x)
+    x1.requires_grad = True
+    z1 = x1.exp()
+    z1.retain_grad()
+    assert eq(z1.data, expected)
+    assert eq(z0.data, z1.data)
+
+    z0.backward()
+    z1.backward(TTensor(np.ones_like(z1.data)))
+    assert eq(x0.grad, expected)
+    assert eq(x1.grad, expected)
+    assert eq(x0.grad, x1.grad)
     assert eq(z0.grad, z1.grad)
