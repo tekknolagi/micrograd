@@ -92,6 +92,28 @@ def test_truediv():
     assert eq(z0.grad, z1.grad)
 
 
+def test_pow_scalar():
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    x0 = VTensor(x)
+    z0 = x0**3.0
+    assert eq(x0.grad, [[0, 0, 0], [0, 0, 0]])
+    assert eq(z0.data, [[1, 8, 27], [64, 125, 216]])
+
+    x1 = TTensor(x)
+    x1.requires_grad = True
+    z1 = x1**3.0
+    z1.retain_grad()
+    assert eq(z1.data, [[1, 8, 27], [64, 125, 216]])
+    assert eq(z0.data, z1.data)
+
+    z0.backward()
+    z1.backward(TTensor(np.ones_like(z1.data)))
+    assert eq(x0.grad, [[3, 12, 27], [48, 75, 108]])
+    assert eq(x1.grad, [[3, 12, 27], [48, 75, 108]])
+    assert eq(x0.grad, x1.grad)
+    assert eq(z0.grad, z1.grad)
+
+
 def test_matmul():
     x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])  # (2, 3)
     y = np.expand_dims(np.array([7.0, 8.0, 9.0]), axis=1)  # (3, 1)
