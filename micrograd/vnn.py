@@ -39,6 +39,17 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def __truediv__(self, other):
+        return self * other**-1
+
+    def __pow__(self, other):
+        assert isinstance(other, int)
+        out = Tensor(self.data**other, (self,), f'**{other}')
+        def _backward():
+            self.grad += other * self.data**(other-1) * out.grad
+        out._backward = _backward
+        return out
+
     def __add__(self, other):
         if isinstance(other, float):
             other = Tensor(np.full(self.data.shape, other), (), '')
@@ -54,15 +65,6 @@ class Tensor:
         def _backward():
             self.grad += out.grad
             other.grad += -out.grad
-        out._backward = _backward
-        return out
-
-    def __truediv__(self, other):
-        out = Tensor(self.data / other.data, (self, other), '/')
-        def _backward():
-            # TODO(max): Check backprop
-            self.grad += out.grad @ 1/other.data.T
-            other.grad += 1/self.data.T @ out.grad
         out._backward = _backward
         return out
 
