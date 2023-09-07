@@ -52,9 +52,8 @@ class Tensor:
     def __sub__(self, other):
         out = Tensor(self.data - other.data, (self, other), '-')
         def _backward():
-            # TODO(max): Check backprop
-            self.grad += -out.grad
-            other.grad += out.grad
+            self.grad += out.grad
+            other.grad += -out.grad
         out._backward = _backward
         return out
 
