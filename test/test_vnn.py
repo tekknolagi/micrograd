@@ -188,3 +188,26 @@ def test_log():
     assert eq(x1.grad, [[1, 1 / 2, 1 / 3], [1 / 4, 1 / 5, 1 / 6]])
     assert eq(x0.grad, x1.grad)
     assert eq(z0.grad, z1.grad)
+
+
+def test_sum():
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    expected = np.sum(x)
+    x0 = VTensor(x)
+    z0 = x0.sum()
+    assert eq(x0.grad, [[0, 0, 0], [0, 0, 0]])
+    assert z0.data == expected
+
+    x1 = TTensor(x)
+    x1.requires_grad = True
+    z1 = x1.sum()
+    z1.retain_grad()
+    assert z1.data == expected
+    assert z0.data == z1.data
+
+    z0.backward()
+    z1.backward(TTensor(np.ones_like(z1.data)))
+    assert eq(x0.grad, [[1, 1, 1], [1, 1, 1]])
+    assert eq(x1.grad, [[1, 1, 1], [1, 1, 1]])
+    assert eq(x0.grad, x1.grad)
+    assert z0.grad == z1.grad.item()

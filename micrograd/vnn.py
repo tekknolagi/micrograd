@@ -4,6 +4,7 @@ import itertools
 import random
 import math
 import numpy as np
+from micrograd.engine import Value
 
 
 random.seed(1337)
@@ -83,9 +84,9 @@ class Tensor:
         return out
 
     def sum(self):
-        out = Tensor(np.sum(self.data), (self,), 'sum')
+        x = np.sum(self.data)
+        out = Value(np.sum(self.data), (self,), 'sum')
         def _backward():
-            # TODO(max): Check backprop
             self.grad += out.grad
         out._backward = _backward
         return out
