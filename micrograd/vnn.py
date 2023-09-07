@@ -1,5 +1,8 @@
 import struct
+import time
+import itertools
 import random
+import math
 import numpy as np
 
 
@@ -7,8 +10,9 @@ random.seed(1337)
 
 
 class Tensor:
-    def __init__(self, data, children, op):
-        assert isinstance(data, np.ndarray)
+    def __init__(self, data, children=(), op=''):
+        assert hasattr(data, 'shape')
+        assert len(data.shape) > 1
         self.data = data
         # TODO(max): Is grad the same dims as data?
         self.grad = np.zeros_like(data)
@@ -27,11 +31,71 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def __mul__(self, other):
+        out = Tensor(self.data * other.data, (self, other), '*')
+        def _backward():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+        out._backward = _backward
+        return out
+
     def __add__(self, other):
+        if isinstance(other, float):
+            other = Tensor(np.full(self.data.shape, other), (), '')
         out = Tensor(self.data + other.data, (self, other), '+')
         def _backward():
             self.grad += out.grad
             other.grad += out.grad
+        out._backward = _backward
+        return out
+
+    def __sub__(self, other):
+        out = Tensor(self.data - other.data, (self, other), '-')
+        def _backward():
+            # TODO(max): Check backprop
+            self.grad += -out.grad
+            other.grad += out.grad
+        out._backward = _backward
+        return out
+
+    def __truediv__(self, other):
+        out = Tensor(self.data / other.data, (self, other), '/')
+        def _backward():
+            # TODO(max): Check backprop
+            self.grad += out.grad @ 1/other.data.T
+            other.grad += 1/self.data.T @ out.grad
+        out._backward = _backward
+        return out
+
+    def exp(self):
+        out = Tensor(np.exp(self.data), (self,), 'exp')
+        def _backward():
+            self.grad += np.exp(self.data) @ out.grad
+        out._backward = _backward
+        return out
+
+    def log(self):
+        out = Tensor(np.log(self.data), (self,), 'log')
+        def _backward():
+            t = 1/self.data 
+            print(self.grad.shape, t.shape, out.grad.shape)
+            self.grad += t @ out.grad
+        out._backward = _backward
+        return out
+
+    def sum(self):
+        out = Tensor(np.sum(self.data), (self,), 'sum')
+        def _backward():
+            # TODO(max): Check backprop
+            self.grad += out.grad
+        out._backward = _backward
+        return out
+
+    def max(self):
+        out = Tensor(np.max(self.data), (self,), 'max')
+        def _backward():
+            # TODO(max): Check backprop
+            self.grad += out.grad
         out._backward = _backward
         return out
 
@@ -118,7 +182,9 @@ DIM = PIXEL_LENGTH
 class image:
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = np.expand_dims(np.array([float(p) for p in pixels]), axis=0)
+        pixels = list(pixels)
+        pixels = np.fromiter(pixels, np.float64, len(pixels))
+        self.pixels = np.expand_dims(pixels, axis=0)
 
 
 class images:
@@ -162,17 +228,50 @@ class images:
         return self.num_images - self.idx
 
 
+def grouper(n, iterable, fillvalue=None):
+    "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.zip_longest(fillvalue=fillvalue, *args)
 
-print("Loading images...")
-db = images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")
-print("Building model...")
-model = MLP(784, [512, 10])
-print("Making tensor...")
-im = Tensor(next(db).pixels, (), 'input')
-print(model)
-print("Evaluating model...")
-out = model(im)
-print(out)
-print("Backprop...")
-out.backward()
-print(im)
+
+def stable_softmax(output):
+    exps = (output - output.max()).exp()
+    return exps/exps.sum()
+
+
+if __name__ == "__main__":
+    print("Loading images...")
+    db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+    print("Building model...")
+    model = MLP(784, [512, 10])
+    print("Training...")
+    num_epochs = 100
+    batch_size = 200
+    for epoch in range(num_epochs):
+        epoch_loss = 0.
+        before = time.perf_counter()
+        shuffled = db.copy()
+        random.shuffle(shuffled)
+        for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+            model.zero_grad()
+            batch_loss = 0.
+            num_correct = 0.
+            for im in batch:
+                logits = model(Tensor(im.pixels, (), 'input'))
+                probs = stable_softmax(logits)
+                exp = np.identity(10)[im.label]
+                exp = Tensor(np.expand_dims(exp, axis=0), (), 'input')
+                loss = (exp*(probs+0.0001).log()).sum()
+                batch_loss += loss.data
+                epoch_loss += loss.data
+                loss.backward()
+            batch_loss /= batch_size
+            accuracy = num_correct/batch_size
+            for p in model.parameters():
+                p.data -= 0.1 * p.grad
+            if batch_idx % 20 == 0:
+                print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
+        after = time.perf_counter()
+        delta = after - before
+        epoch_loss /= len(db)
+        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} ({len(db)/delta} images/sec)")
