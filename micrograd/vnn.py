@@ -78,9 +78,7 @@ class Tensor:
     def log(self):
         out = Tensor(np.log(self.data), (self,), 'log')
         def _backward():
-            t = 1/self.data 
-            print(self.grad.shape, t.shape, out.grad.shape)
-            self.grad += t @ out.grad
+            self.grad += 1/self.data * out.grad
         out._backward = _backward
         return out
 
