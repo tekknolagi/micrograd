@@ -145,7 +145,7 @@ class Value:
     def log(self):
         out = Value(math.log(self.data), (self,), 'log')
 
-        def _backward(out, self):
+        def _backward():
             self.grad += 1/self.data * out.grad
         out._backward = _backward
 
@@ -186,7 +186,7 @@ class Value:
     def exp(self):
         out = Value(math.exp(self.data), (self,), 'exp')
 
-        def _backward(out, self):
+        def _backward():
             self.grad += math.exp(self.data) * out.grad
         out._backward = _backward
 
