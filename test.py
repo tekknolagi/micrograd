@@ -117,6 +117,28 @@ assert (
 ), f"{len(topo)} vs {micrograd.engine.counter}"
 
 
+def load_input():
+    result = []
+    for idx, i in enumerate(inp):
+        result.append(f"data{i._id} = buf[{idx}];\n")
+    return "".join(result)
+
+
+def set_expected():
+    result = []
+    for idx, o in enumerate(expected_onehot):
+        result.append(f"if (label == {idx}) {{ data{o._id} = 1; }}\n")
+        result.append(f"else {{ data{o._id} = 0; }}\n")
+    return "".join(result)
+
+
+def zero_grad():
+    result = []
+    for o in topo:
+        result.append(f"grad{o._id} = 0;\n")
+    return "".join(result)
+
+
 def write_code():
     with tempfile.TemporaryDirectory() as dir_path:
         source_dir = f"{dir_path}/src"
@@ -125,6 +147,10 @@ def write_code():
         os.makedirs(build_dir)
         file_path = f"{source_dir}/nn.c"
         with open(file_path, "w+") as f:
+            for o in topo:
+                print(f"double data{o._id} = 0;", file=f)
+            for o in topo:
+                print(f"double grad{o._id} = 0;", file=f)
             print(
                 f"""\
 #include <assert.h>
@@ -132,8 +158,6 @@ def write_code():
 #include <stdio.h>
 #include <string.h>
 #include <Python.h>
-    double data[{num_nodes}];
-    double grad[{num_nodes}];
     static inline __attribute__((always_inline)) double relu(double x) {{
         return fmax(x, 0);
     }}
@@ -145,7 +169,7 @@ def write_code():
                 file=f,
             )
             for o in model.parameters():
-                print(f"data[{o._id}] = {o.data}L;", file=f)
+                print(f"data{o._id} = {o.data}L;", file=f)
             print("}", file=f)
             print(
                 f"""\
@@ -154,9 +178,7 @@ def write_code():
         if (buf == NULL) {{
             abort();
         }}
-        for (int i = 0; i < {DIM}; i++) {{
-            data[{inp[0]._id}+i] = buf[i];
-        }}
+        {load_input()}
     }}
             """,
                 file=f,
@@ -169,8 +191,8 @@ def write_code():
             print("}", file=f)
             print("void backward() {", file=f)
             for o in reversed(topo):
-                if o._op not in ('', 'weight', 'bias', 'input'):
-                    print(f"double grad{o._id} = 0;", file=f)
+                # if o._op not in ('', 'weight', 'bias', 'input'):
+                print(f"grad{o._id} = 0;", file=f)
             print(f"{loss.getgrad()} = 1;", file=f)
             for o in reversed(topo):
                 for line in o.backward_compile():
@@ -181,11 +203,11 @@ def write_code():
             print("int idx = 0;", file=f)
             for o in model.parameters():
                 assert o._op in ('weight', 'bias'), repr(o._op)
-                assert '[' in o.getgrad()
+                # assert '[' in o.getgrad()
                 print(f"{{ double grad_update = learning_rate * {o.getgrad()} / ((double)batch_size);", file=f)
                 print("assert(!isnan(grad_update));", file=f)
                 print("assert(!isinf(grad_update));", file=f)
-                print(f"data[{o._id}] -= grad_update; idx++; }}", file=f)
+                print(f"data{o._id} -= grad_update; idx++; }}", file=f)
             print("}", file=f)
             print(
                 f"""\
@@ -213,19 +235,18 @@ def write_code():
                 return NULL;
           }}
           // Set label
-          memset(&data[{expected_onehot[0]._id}], 0, {NUM_DIGITS}*sizeof data[0]);
-          data[{expected_onehot[0]._id}+label] = 1.0L;
+          {set_expected()}
           set_input(pixels_obj);
           forward();
           // TODO(max): Make this able to return multiple outputs?
-          double loss = data[{loss._id}];
+          double loss = data{loss._id};
           return PyFloat_FromDouble(loss);
     }}
 
     PyObject* zero_grad_wrapper(PyObject* module) {{
           // Don't just zero the parameters; Karpathy can get away with that
           // because he rebuilds the entire graph every time, but we don't.
-          memset(grad, 0, sizeof grad);
+          {zero_grad()}
           Py_RETURN_NONE;
     }}
 
@@ -253,47 +274,11 @@ def write_code():
           Py_RETURN_NONE;
     }}
 
-    PyObject* data_wrapper(PyObject* module, PyObject* idx_obj) {{
-          long i = PyLong_AsLong(idx_obj);
-          if (i < 0) {{
-                  if (PyErr_Occurred()) {{
-                        return NULL;
-                  }}
-                  PyErr_Format(PyExc_TypeError, "expected positive index");
-                  return NULL;
-          }}
-          if (i >= {num_nodes}) {{
-                  fprintf(stderr, "index %ld (dim %d)\\n", i, {num_nodes});
-                  PyErr_Format(PyExc_TypeError, "index out of bounds");
-                  return NULL;
-          }}
-          return PyFloat_FromDouble(data[i]);
-    }}
-
-    PyObject* grad_wrapper(PyObject* module, PyObject* idx_obj) {{
-          long i = PyLong_AsLong(idx_obj);
-          if (i < 0) {{
-                  if (PyErr_Occurred()) {{
-                        return NULL;
-                  }}
-                  PyErr_Format(PyExc_TypeError, "expected positive index");
-                  return NULL;
-          }}
-          if (i >= {num_nodes}) {{
-                  fprintf(stderr, "index %ld (dim %d)\\n", i, {num_nodes});
-                  PyErr_Format(PyExc_TypeError, "index out of bounds");
-                  return NULL;
-          }}
-          return PyFloat_FromDouble(grad[i]);
-    }}
-
     static PyMethodDef nn_methods[] = {{
           {{ "forward", (PyCFunction)forward_wrapper, METH_FASTCALL, "doc" }},
           {{ "zero_grad", (PyCFunction)zero_grad_wrapper, METH_NOARGS, "doc" }},
           {{ "backward", (PyCFunction)backward_wrapper, METH_NOARGS, "doc" }},
           {{ "update", (PyCFunction)update_wrapper, METH_FASTCALL, "doc" }},
-          {{ "data", data_wrapper, METH_O, "doc" }},
-          {{ "grad", grad_wrapper, METH_O, "doc" }},
           {{ NULL, NULL }},
     }};
 
@@ -336,6 +321,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--use-existing", action='store_true')
 args = parser.parse_args()
 
+
+def loss_of(model, image):
+    output = model(image.pixels)
+    softmax_output = stable_softmax(output)
+    expected_onehot = [0. for _ in range(NUM_DIGITS)]
+    expected_onehot[image.label] = 1.
+    result = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
+    return result
+
+
 lib_file = "nn.so"
 if not args.use_existing:
     source_file = timer(lambda: write_code(), "Writing C code...")
@@ -343,7 +338,12 @@ if not args.use_existing:
     # https://shwina.github.io/custom-compiler-linker-extensions/
     include_dir = sysconfig.get_python_inc()
     timer(
-        lambda: os.system(f"clang -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -O2 -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"clang -O1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"tcc -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
         "Compiling extension...",
     )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
@@ -353,21 +353,21 @@ num_epochs = 100
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
 batch_size = 1000
 for epoch in range(num_epochs):
-    epoch_loss = 0
+    epoch_loss = 0.
     before = time.perf_counter()
     shuffled = db.copy()
     random.shuffle(shuffled)
     for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
         nn.zero_grad()
-        batch_loss = 0
         num_correct = 0
+        batch_loss = 0.
         for im in batch:
             im_loss = nn.forward(im.label, im.pixels)
-            outs = [nn.data(o._id) for o in softmax_output]
-            guess = np.argmax(outs)
-            if guess == im.label:
-                num_correct += 1
-            assert not any(math.isnan(o) for o in outs)
+            # outs = [nn.data(o._id) for o in softmax_output]
+            # guess = np.argmax(outs)
+            # if guess == im.label:
+            #     num_correct += 1
+            # assert not any(math.isnan(o) for o in outs)
             assert not math.isnan(im_loss)
             assert not math.isinf(im_loss)
             batch_loss += im_loss
@@ -382,3 +382,32 @@ for epoch in range(num_epochs):
     delta = after - before
     epoch_loss /= len(db)
     print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+
+
+# print("Training...")
+# num_epochs = 100
+# db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+# batch_size = 1000
+# for epoch in range(num_epochs):
+#     epoch_loss = 0.
+#     before = time.perf_counter()
+#     shuffled = db.copy()
+#     random.shuffle(shuffled)
+#     for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+#         for p in model.parameters():
+#             p.grad = 0.0
+#         num_correct = 0
+#         loss = sum(loss_of(model, im) for im in batch)
+#         loss.backward()
+#         batch_loss = loss.data
+#         epoch_loss += loss.data
+#         batch_loss /= batch_size
+#         accuracy = num_correct/batch_size
+#         for p in model.parameters():
+#             p.data -= 0.1 * p.grad
+#         if batch_idx % 20 == 0:
+#             print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
+#     after = time.perf_counter()
+#     delta = after - before
+#     epoch_loss /= len(db)
+#     print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
