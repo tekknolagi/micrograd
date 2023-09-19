@@ -63,9 +63,7 @@ class Value:
     def getgrad(self):
         if self._op in ('', 'input'):
             raise RuntimeError("Grad for constants and input data not stored")
-        if self._op in ('weight', 'bias'):
-            return f"grad[{self._id}]"
-        return f"grad{self._id}"
+        return f"grad[{self._id}]"
 
     def setgrad(self, val):
         if self._op in ('', 'input'):
