@@ -123,10 +123,7 @@ for epoch in range(num_epochs):
         num_correct = 0
         loss = sum(loss_of(model, im) for im in tqdm(batch))
         loss.backward()
-        batch_loss = loss.data
         epoch_loss += loss.data
-        batch_loss /= batch_size
-        accuracy = num_correct/batch_size
         for p in model.parameters():
             p.data -= 0.1 * p.grad
     after = time.perf_counter()
