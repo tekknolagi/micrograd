@@ -1,12 +1,8 @@
-import argparse
 import functools
 import itertools
-import os
 import random
-import shutil
 import struct
 import sys
-import tempfile
 import time
 from micrograd import nn as nn_interp
 from micrograd.engine import Max
@@ -81,10 +77,6 @@ def timer(lam, msg=""):
     return result
 
 
-NUM_DIGITS = 10
-model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
-
-
 def grouper(n, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
@@ -97,6 +89,10 @@ def stable_softmax(output):
     exps = [o.exp() for o in shiftx]
     sum_ = sum(exps)
     return [o/sum_ for o in exps]
+
+
+NUM_DIGITS = 10
+model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 
 
 def loss_of(model, image):
@@ -120,7 +116,6 @@ for epoch in range(num_epochs):
     for batch_idx, batch in tqdm(enumerate(grouper(batch_size, shuffled))):
         for p in model.parameters():
             p.grad = 0.0
-        num_correct = 0
         loss = sum(loss_of(model, im) for im in tqdm(batch))
         loss.backward()
         epoch_loss += loss.data
