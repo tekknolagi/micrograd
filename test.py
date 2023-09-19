@@ -90,6 +90,28 @@ def stable_softmax(output):
     return [o/sum_ for o in exps]
 
 
+def optimize_ir(output):
+    topo = output.topo()
+    num_fma = 0
+    for o in topo:
+        # Find a*b+c
+        if o._op != '+':
+            continue
+        left, right = o._prev
+        if left._op == '*':
+            a, b = left._prev
+            num_fma += 1
+        elif right._op == '*':
+            a, b = right._prev
+            num_fma += 1
+        else:
+            continue
+    # TODO(max): Figure out how to replace nodes in-place. Maybe need to build
+    # a mapping of node->replacement and then visit all uses.
+    print(f"...found {num_fma} FMA opportunities")
+    return output
+
+
 NUM_DIGITS = 10
 model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 # NOTE: It's important that input are all in sequence right next to one another
@@ -105,6 +127,7 @@ assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
 loss = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
+loss = optimize_ir(loss)
 topo = timer(lambda: loss.topo(), "Building topo...")
 num_nodes = len(topo)
 assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
