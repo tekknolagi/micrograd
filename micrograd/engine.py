@@ -1,13 +1,15 @@
+import math
 
 class Value:
     """ stores a single scalar value and its gradient """
+    __slots__ = ("data", "grad", "_backward", "_prev", "_op")
 
     def __init__(self, data, _children=(), _op=''):
         self.data = data
         self.grad = 0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
-        self._prev = set(_children)
+        self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
     def __add__(self, other):
@@ -51,6 +53,20 @@ class Value:
 
         return out
 
+    def exp(self):
+        out = Value(math.exp(self.data), (self,), 'exp')
+        def _backward():
+            self.grad += math.exp(self.data) * out.grad
+        out._backward = _backward
+        return out
+
+    def log(self):
+        out = Value(math.log(self.data), (self,), 'log')
+        def _backward():
+            self.grad += 1/self.data * out.grad
+        out._backward = _backward
+        return out
+
     def backward(self):
 
         # topological order all of the children in the graph
@@ -92,3 +108,14 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"
+
+
+class Max(Value):
+    def __init__(self, left, right):
+        super().__init__(max(left.data, right.data), (left, right), 'max')
+        def _backward():
+            if left.data > right.data:
+                left.grad += self.grad
+            else:
+                right.grad += self.grad
+        self._backward = _backward
