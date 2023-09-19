@@ -4,7 +4,7 @@ import collections
 import functools
 import importlib
 import itertools
-# import numpy as np
+import numpy as np
 import math
 import micrograd
 import os
@@ -17,8 +17,6 @@ import time
 from distutils import sysconfig
 from micrograd import nn as nn_interp
 from micrograd.engine import Value, Max
-from tqdm import tqdm
-tqdm.monitor_interval = 0
 
 
 random.seed(1337)
@@ -332,27 +330,60 @@ def loss_of(model, image):
     result = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
     return result
 
-import sys
-sys.setrecursionlimit(20000)
+
+lib_file = "nn.so"
+if not args.use_existing:
+    source_file = timer(lambda: write_code(), "Writing C code...")
+    # TODO(max): Bring back Extension stuff and customize compiler using
+    # https://shwina.github.io/custom-compiler-linker-extensions/
+    include_dir = sysconfig.get_python_inc()
+    timer(
+        # lambda: os.system(f"clang -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -O2 -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"clang -O1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"tcc -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        "Compiling extension...",
+    )
+spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
+nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
+print("Training...")
+num_epochs = 100
+db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+batch_size = 1000
+for epoch in range(num_epochs):
+    epoch_loss = 0.
+    before = time.perf_counter()
+    shuffled = db.copy()
+    random.shuffle(shuffled)
+    for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+        nn.zero_grad()
+        num_correct = 0
+        batch_loss = 0.
+        for im in batch:
+            im_loss = nn.forward(im.label, im.pixels)
+            # outs = [nn.data(o._id) for o in softmax_output]
+            # guess = np.argmax(outs)
+            # if guess == im.label:
+            #     num_correct += 1
+            # assert not any(math.isnan(o) for o in outs)
+            assert not math.isnan(im_loss)
+            assert not math.isinf(im_loss)
+            batch_loss += im_loss
+            epoch_loss += im_loss
+            nn.backward()
+        batch_loss /= batch_size
+        accuracy = num_correct/batch_size
+        nn.update(epoch, batch_size)
+        if batch_idx % 20 == 0:
+            print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
+    after = time.perf_counter()
+    delta = after - before
+    epoch_loss /= len(db)
+    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
 
 
-# lib_file = "nn.so"
-# if not args.use_existing:
-#     source_file = timer(lambda: write_code(), "Writing C code...")
-#     # TODO(max): Bring back Extension stuff and customize compiler using
-#     # https://shwina.github.io/custom-compiler-linker-extensions/
-#     include_dir = sysconfig.get_python_inc()
-#     timer(
-#         # lambda: os.system(f"clang -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -fsave-optimization-record -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -O2 -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         lambda: os.system(f"clang -O1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         # lambda: os.system(f"tcc -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         # lambda: os.system(f"clang -mllvm -global-isel-abort=1 -march=native -mtune=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
-#         "Compiling extension...",
-#     )
-# spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
-# nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 # print("Training...")
 # num_epochs = 100
 # db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
@@ -363,57 +394,20 @@ sys.setrecursionlimit(20000)
 #     shuffled = db.copy()
 #     random.shuffle(shuffled)
 #     for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
-#         nn.zero_grad()
+#         for p in model.parameters():
+#             p.grad = 0.0
 #         num_correct = 0
-#         batch_loss = 0.
-#         for im in batch:
-#             im_loss = nn.forward(im.label, im.pixels)
-#             # outs = [nn.data(o._id) for o in softmax_output]
-#             # guess = np.argmax(outs)
-#             # if guess == im.label:
-#             #     num_correct += 1
-#             # assert not any(math.isnan(o) for o in outs)
-#             assert not math.isnan(im_loss)
-#             assert not math.isinf(im_loss)
-#             batch_loss += im_loss
-#             epoch_loss += im_loss
-#             nn.backward()
+#         loss = sum(loss_of(model, im) for im in batch)
+#         loss.backward()
+#         batch_loss = loss.data
+#         epoch_loss += loss.data
 #         batch_loss /= batch_size
 #         accuracy = num_correct/batch_size
-#         nn.update(epoch, batch_size)
+#         for p in model.parameters():
+#             p.data -= 0.1 * p.grad
 #         if batch_idx % 20 == 0:
 #             print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
 #     after = time.perf_counter()
 #     delta = after - before
 #     epoch_loss /= len(db)
 #     print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
-
-
-print("Training...")
-num_epochs = 100
-db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = 1000
-for epoch in range(num_epochs):
-    epoch_loss = 0.
-    before = time.perf_counter()
-    shuffled = db.copy()
-    random.shuffle(shuffled)
-    for batch_idx, batch in tqdm(enumerate(grouper(batch_size, shuffled))):
-        for p in model.parameters():
-            p.grad = 0.0
-        num_correct = 0
-        loss = sum(loss_of(model, im) for im in tqdm(batch))
-        loss.backward()
-        batch_loss = loss.data
-        epoch_loss += loss.data
-        batch_loss /= batch_size
-        accuracy = num_correct/batch_size
-        for p in model.parameters():
-            p.data -= 0.1 * p.grad
-        print("batch")
-        if batch_idx % 20 == 0:
-            print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
-    after = time.perf_counter()
-    delta = after - before
-    epoch_loss /= len(db)
-    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
