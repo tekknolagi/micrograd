@@ -1,17 +1,14 @@
 import _imp
 import argparse
-import collections
 import functools
 import importlib
 import itertools
-import numpy as np
 import math
 import micrograd
 import os
 import random
 import shutil
 import struct
-import sys
 import tempfile
 import time
 from distutils import sysconfig
@@ -107,7 +104,6 @@ expected_onehot = [Value(0, (), "input") for _ in range(NUM_DIGITS)]
 assert [exp._id for exp in expected_onehot] == list(
     range(expected_onehot[0]._id, expected_onehot[0]._id + len(expected_onehot))
 )
-# loss = sum((exp - act) ** 2 for exp, act in zip(expected_onehot, softmax_output))
 loss = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
 topo = timer(lambda: loss.topo(), "Building topo...")
 num_nodes = len(topo)
@@ -343,7 +339,7 @@ if not args.use_existing:
     # https://shwina.github.io/custom-compiler-linker-extensions/
     include_dir = sysconfig.get_python_inc()
     timer(
-        lambda: os.system(f"clang -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"tcc -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
         "Compiling extension...",
     )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
@@ -360,13 +356,9 @@ for epoch in range(num_epochs):
     for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
         nn.zero_grad()
         batch_loss = 0
-        num_correct = 0
         for im in batch:
             im_loss = nn.forward(im.label, im.pixels)
             outs = [nn.data(o._id) for o in softmax_output]
-            guess = np.argmax(outs)
-            if guess == im.label:
-                num_correct += 1
             assert not any(math.isnan(o) for o in outs)
             assert not math.isnan(im_loss)
             assert not math.isinf(im_loss)
@@ -374,10 +366,9 @@ for epoch in range(num_epochs):
             epoch_loss += im_loss
             nn.backward()
         batch_loss /= batch_size
-        accuracy = num_correct/batch_size
         nn.update(epoch, batch_size)
         if batch_idx % 20 == 0:
-            print(f"batch {batch_idx:4d} loss {batch_loss:.2f} acc {accuracy:.2f}")
+            print(f"batch {batch_idx:4d} loss {batch_loss:.2f}")
     after = time.perf_counter()
     delta = after - before
     epoch_loss /= len(db)
