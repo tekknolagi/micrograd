@@ -4,44 +4,6 @@ import math
 counter = 0
 
 
-def _backward_nothing(out):
-    pass
-
-
-def _backward_add(out, self, other):
-    self.grad += out.grad
-    other.grad += out.grad
-
-
-def _backward_mul(out, self, other):
-    self.grad += other.data * out.grad
-    other.grad += self.data * out.grad
-
-
-def _backward_pow(out, self):
-    other = int(out._op[2:])
-    self.grad += (other * self.data**(other-1)) * out.grad
-
-
-def _backward_relu(out, self):
-    self.grad += (out.data > 0) * out.grad
-
-
-def _backward_log(out, self):
-    self.grad += 1/self.data * out.grad
-
-
-def _backward_exp(out, self):
-    self.grad += math.exp(self.data) * out.grad
-
-
-def _backward_max(out, self, other):
-    if self.data > other.data:
-        self.grad += out.grad
-    else:
-        other.grad += out.grad
-
-
 class Value:
     """ stores a single scalar value and its gradient """
 
@@ -49,7 +11,7 @@ class Value:
         self.data = data
         self.grad = 0
         # internal variables used for autograd graph construction
-        self._backward = _backward_nothing
+        self._backward = lambda: None
         self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
         global counter
@@ -59,7 +21,7 @@ class Value:
     def var(self):
         if self._op == '':
             return str(self.data)
-        return f"data{self._id}"
+        return f"data[{self._id}]"
 
     def set(self, val):
         if self._op == '':
@@ -102,7 +64,7 @@ class Value:
         if self._op in ('', 'input'):
             raise RuntimeError("Grad for constants and input data not stored")
         if self._op in ('weight', 'bias'):
-            return f"grad{self._id}"
+            return f"grad[{self._id}]"
         return f"grad{self._id}"
 
     def setgrad(self, val):
@@ -142,29 +104,51 @@ class Value:
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data + other.data, (self, other), '+')
-        out._backward = _backward_add
+
+        def _backward():
+            self.grad += out.grad
+            other.grad += out.grad
+        out._backward = _backward
+
         return out
 
     def __mul__(self, other):
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data * other.data, (self, other), '*')
-        out._backward = _backward_mul
+
+        def _backward():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+        out._backward = _backward
+
         return out
 
     def __pow__(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
         out = Value(self.data**other, (self,), f'**{other}')
-        out._backward = _backward_pow
+
+        def _backward():
+            self.grad += (other * self.data**(other-1)) * out.grad
+        out._backward = _backward
+
         return out
 
     def relu(self):
         out = Value(0 if self.data < 0 else self.data, (self,), 'ReLU')
-        out._backward = _backward_relu
+
+        def _backward():
+            self.grad += (out.data > 0) * out.grad
+        out._backward = _backward
+
         return out
 
     def log(self):
         out = Value(math.log(self.data), (self,), 'log')
-        out._backward = _backward_log
+
+        def _backward():
+            self.grad += 1/self.data * out.grad
+        out._backward = _backward
+
         return out
 
     def topo(self):
@@ -197,11 +181,15 @@ class Value:
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
         for v in reversed(topo):
-            v._backward(v, *v._prev)
+            v._backward()
 
     def exp(self):
         out = Value(math.exp(self.data), (self,), 'exp')
-        out._backward = _backward_exp
+
+        def _backward():
+            self.grad += math.exp(self.data) * out.grad
+        out._backward = _backward
+
         return out
 
     def __neg__(self): # -self
@@ -232,7 +220,6 @@ class Value:
 class Max(Value):
     def __init__(self, left, right):
         super().__init__(max(left.data, right.data), (left, right), 'max')
-        self._backward = _backward_max
 
     def compile(self):
         left, right = self._prev
