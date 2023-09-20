@@ -174,7 +174,7 @@ def write_code():
             abort();
         }}
         for (int i = 0; i < {DIM}; i++) {{
-            data[{inp[0]._id}+i] = buf[i];
+            data[{inp[0]._id}+i] = ((double)(unsigned char)buf[i])/255;
         }}
     }}
             """,
