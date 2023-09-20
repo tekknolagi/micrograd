@@ -1,8 +1,10 @@
 import math
 
+counter = 0
+
 class Value:
     """ stores a single scalar value and its gradient """
-    __slots__ = ("data", "grad", "_backward", "_prev", "_op")
+    __slots__ = ("data", "grad", "_backward", "_prev", "_op", "_id")
 
     def __init__(self, data, _children=(), _op=''):
         self.data = data
@@ -11,6 +13,9 @@ class Value:
         self._backward = lambda: None
         self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
+        global counter
+        self._id = counter
+        counter += 1
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
@@ -66,6 +71,21 @@ class Value:
             self.grad += 1/self.data * out.grad
         out._backward = _backward
         return out
+
+
+    def topo(self):
+
+        # topological order all of the children in the graph
+        topo = []
+        visited = set()
+        def build_topo(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build_topo(child)
+                topo.append(v)
+        build_topo(self)
+        return topo
 
     def backward(self):
 
