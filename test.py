@@ -382,7 +382,7 @@ def accuracy():
         if guess == im.label:
             num_correct += 1
     return num_correct/len(testdb)
-batch_size = 1000
+batch_size = 20
 for epoch in range(num_epochs):
     epoch_loss = 0
     before = time.perf_counter()
