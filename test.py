@@ -370,12 +370,23 @@ spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
 num_epochs = 100
-db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+traindb = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+testdb = list(images("t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte"))
+def argmax(output):
+    return max(enumerate(output), key=lambda x: x[1])[0]
+def accuracy():
+    num_correct = 0
+    for im in testdb:
+        nn.forward(im.label, im.pixels)
+        guess = argmax([nn.data(o._id) for o in output])
+        if guess == im.label:
+            num_correct += 1
+    return num_correct/len(testdb)
 batch_size = 1000
 for epoch in range(num_epochs):
     epoch_loss = 0
     before = time.perf_counter()
-    shuffled = db.copy()
+    shuffled = traindb.copy()
     random.shuffle(shuffled)
     for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
         nn.zero_grad()
@@ -395,5 +406,5 @@ for epoch in range(num_epochs):
             print(f"batch {batch_idx:4d} loss {batch_loss:.2f}")
     after = time.perf_counter()
     delta = after - before
-    epoch_loss /= len(db)
-    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+    epoch_loss /= len(traindb)
+    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} acc {accuracy():.2f} (took {delta} sec)")
