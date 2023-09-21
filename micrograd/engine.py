@@ -70,34 +70,34 @@ class Value:
             return []
         return [f"{self.getgrad()} += clip({val});"]
 
-    def backward_compile(self):
-        if not self._prev:
-            assert self._op in ('', 'weight', 'bias', 'input')
+    def backward_compile(out):
+        if not out._prev:
+            assert out._op in ('', 'weight', 'bias', 'input')
             # Nothing to propagate to children.
-            assert not self._prev
+            assert not out._prev
             return []
-        if self._op == '*':
-            left, right = self._prev
-            return left.setgrad(f"{right.var()}*{self.getgrad()}") +\
-                    right.setgrad(f"{left.var()}*{self.getgrad()}")
-        if self._op == '+':
-            left, right = self._prev
-            return left.setgrad(f"{self.getgrad()}") + right.setgrad(f"{self.getgrad()}")
-        if self._op == 'ReLU':
-            prev, = self._prev
-            return prev.setgrad(f"({self.var()}>0)*{self.getgrad()}")
-        if self._op.startswith('**'):
-            exponent = int(self._op[2:])
-            prev, = self._prev
-            exp = self.make_exp(prev.var(), exponent-1)
-            return prev.setgrad(f"{exponent}*{exp}*{self.getgrad()}")
-        if self._op == 'exp':
-            prev, = self._prev
-            return prev.setgrad(f"exp({prev.var()})*{self.getgrad()}")
-        if self._op == 'log':
-            prev, = self._prev
-            return prev.setgrad(f"1.0L/{prev.var()}*{self.getgrad()}")
-        raise NotImplementedError(self._op)
+        if out._op == '*':
+            self, other = out._prev
+            return self.setgrad(f"{other.var()}*{out.getgrad()}") +\
+                    other.setgrad(f"{self.var()}*{out.getgrad()}")
+        if out._op == '+':
+            self, other = out._prev
+            return self.setgrad(f"{out.getgrad()}") + other.setgrad(f"{out.getgrad()}")
+        if out._op == 'ReLU':
+            self, = out._prev
+            return self.setgrad(f"({out.var()}>0)*{out.getgrad()}")
+        if out._op.startswith('**'):
+            exponent = int(out._op[2:])
+            self, = out._prev
+            exp = out.make_exp(self.var(), exponent-1)
+            return self.setgrad(f"{exponent}*{exp}*{out.getgrad()}")
+        if out._op == 'exp':
+            self, = out._prev
+            return self.setgrad(f"exp({self.var()})*{out.getgrad()}")
+        if out._op == 'log':
+            self, = out._prev
+            return self.setgrad(f"1.0L/{self.var()}*{out.getgrad()}")
+        raise NotImplementedError(out._op)
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
