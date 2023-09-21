@@ -187,6 +187,10 @@ def write_code():
                     print(line, file=f)
             print("}", file=f)
             print("void backward() {", file=f)
+            params = frozenset(model.parameters())
+            for o in topo:
+                if o not in params:
+                    print(f"grad[{o._id}] = 0;", file=f)
             print(f"{loss.getgrad()} = 1;", file=f)
             for o in reversed(topo):
                 for line in o.backward_compile():
