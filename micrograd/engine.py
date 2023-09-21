@@ -230,3 +230,28 @@ class Max(Value):
                 ["} else {"] +\
                 right.setgrad(f"{self.getgrad()}") +\
                 ["}"]
+
+
+def dot(l, r):
+    return sum(li.data*ri.data for li,ri in zip(l,r))
+
+
+class Dot(Value):
+    def __init__(self, left_arr, right_arr):
+        assert len(left_arr) == len(right_arr)
+        assert left_arr
+        super().__init__(dot(left_arr, right_arr), tuple(set(left_arr+right_arr)), 'dot')
+        self.dim = len(left_arr)
+        self.left_arr = left_arr
+        self.right_arr = right_arr
+
+    def compile(self):
+        products = (f"{li.getdata()}*{ri.getdata()}" for li, ri in zip(self.left_arr, self.right_arr))
+        return self.set(f"{'+'.join(products)}")
+
+    def backward_compile(self):
+        result = []
+        for i in range(self.dim):
+            result += self.left_arr[i].setgrad(f"{self.right_arr[i].getdata()}*{self.getgrad()}")
+            result += self.right_arr[i].setgrad(f"{self.left_arr[i].getdata()}*{self.getgrad()}")
+        return result

@@ -134,6 +134,7 @@ assert num_nodes == len(set(topo)), f"{len(topo)-len(set(topo))} duplicates"
 assert (
     num_nodes == micrograd.engine.counter
 ), f"{len(topo)} vs {micrograd.engine.counter}"
+print(f"There are {num_nodes} nodes...")
 
 
 def write_code():

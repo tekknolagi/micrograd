@@ -1,5 +1,5 @@
 import random
-from micrograd.engine import Value
+from micrograd.engine import Value, Dot
 
 class Module:
 
@@ -19,7 +19,7 @@ class Neuron(Module):
 
     def __call__(self, x):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
-        act = sum((wi*xi for wi,xi in zip(self.w, x)), self.b)
+        act = Dot(self.w, x)+self.b
         return act.relu() if self.nonlin else act
 
     def parameters(self):
