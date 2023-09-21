@@ -402,7 +402,7 @@ for epoch in range(num_epochs):
             nn.backward()
         batch_loss /= batch_size
         nn.update(epoch, batch_size)
-        if batch_idx % 20 == 0:
+        if batch_idx % 500 == 0:
             print(f"batch {batch_idx:4d} loss {batch_loss:.2f}")
     after = time.perf_counter()
     delta = after - before
