@@ -18,7 +18,7 @@ class Value:
         self._id = counter
         counter += 1
 
-    def var(self):
+    def getdata(self):
         if self._op == '':
             return str(self.data)
         return f"data[{self._id}]"
@@ -26,7 +26,7 @@ class Value:
     def set(self, val):
         if self._op == '':
             raise RuntimeError("Can't set constant")
-        return f"{self.var()} = {val};"
+        return f"{self.getdata()} = {val};"
 
     def make_exp(self, val, exp):
         if exp == 0:
@@ -43,21 +43,21 @@ class Value:
             return ""
         if self._op == '*':
             assert len(self._prev) == 2
-            return self.set(f"{self._prev[0].var()}*{self._prev[1].var()}")
+            return self.set(f"{self._prev[0].getdata()}*{self._prev[1].getdata()}")
         if self._op == '+':
             assert len(self._prev) == 2
-            return self.set(f"{self._prev[0].var()}+{self._prev[1].var()}")
+            return self.set(f"{self._prev[0].getdata()}+{self._prev[1].getdata()}")
         if self._op == 'ReLU':
             assert len(self._prev) == 1
-            return self.set(f"relu({self._prev[0].var()})")
+            return self.set(f"relu({self._prev[0].getdata()})")
         if self._op.startswith('**'):
             exponent = int(self._op[2:])
             assert len(self._prev) == 1
-            return self.set(self.make_exp(self._prev[0].var(), exponent))
+            return self.set(self.make_exp(self._prev[0].getdata(), exponent))
         if self._op == 'exp':
-            return self.set(f"exp({self._prev[0].var()})")
+            return self.set(f"exp({self._prev[0].getdata()})")
         if self._op == 'log':
-            return self.set(f"log({self._prev[0].var()})")
+            return self.set(f"log({self._prev[0].getdata()})")
         raise NotImplementedError(self._op)
 
     def getgrad(self):
@@ -78,25 +78,25 @@ class Value:
             return []
         if out._op == '*':
             self, other = out._prev
-            return self.setgrad(f"{other.var()}*{out.getgrad()}") +\
-                    other.setgrad(f"{self.var()}*{out.getgrad()}")
+            return self.setgrad(f"{other.getdata()}*{out.getgrad()}") +\
+                    other.setgrad(f"{self.getdata()}*{out.getgrad()}")
         if out._op == '+':
             self, other = out._prev
             return self.setgrad(f"{out.getgrad()}") + other.setgrad(f"{out.getgrad()}")
         if out._op == 'ReLU':
             self, = out._prev
-            return self.setgrad(f"({out.var()}>0)*{out.getgrad()}")
+            return self.setgrad(f"({out.getdata()}>0)*{out.getgrad()}")
         if out._op.startswith('**'):
             exponent = int(out._op[2:])
             self, = out._prev
-            exp = out.make_exp(self.var(), exponent-1)
+            exp = out.make_exp(self.getdata(), exponent-1)
             return self.setgrad(f"{exponent}*{exp}*{out.getgrad()}")
         if out._op == 'exp':
             self, = out._prev
-            return self.setgrad(f"exp({self.var()})*{out.getgrad()}")
+            return self.setgrad(f"exp({self.getdata()})*{out.getgrad()}")
         if out._op == 'log':
             self, = out._prev
-            return self.setgrad(f"1.0L/{self.var()}*{out.getgrad()}")
+            return self.setgrad(f"1.0L/{self.getdata()}*{out.getgrad()}")
         raise NotImplementedError(out._op)
 
     def __add__(self, other):
@@ -221,11 +221,11 @@ class Max(Value):
 
     def compile(self):
         left, right = self._prev
-        return self.set(f"fmax({left.var()}, {right.var()})")
+        return self.set(f"fmax({left.getdata()}, {right.getdata()})")
 
     def backward_compile(self):
         left, right = self._prev
-        return [f"if ({left.var()} > {right.var()}) {{"] +\
+        return [f"if ({left.getdata()} > {right.getdata()}) {{"] +\
                 left.setgrad(f"{self.getgrad()}") +\
                 ["} else {"] +\
                 right.setgrad(f"{self.getgrad()}") +\
