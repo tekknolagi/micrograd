@@ -34,6 +34,7 @@ class Layer(Module):
         self.neurons = [Neuron(nin, **kwargs) for _ in range(nout)]
 
     def __call__(self, x):
+        # TODO(max): As above, turn this list-of-dots into one matmul operation
         out = [n(x) for n in self.neurons]
         return out[0] if len(out) == 1 else out
 
