@@ -156,7 +156,7 @@ def run():
             for p in params:
                 p.data -= 0.1 * p.grad/batch_size
             batch_after = time.perf_counter()
-            if batch_idx % 100 == 0:
+            if batch_idx % 500 == 0:
                 print(f"batch {batch_idx:4d} loss {batch_loss:.2f} took {batch_after-batch_before:.2f} seconds ({batch_size/(batch_after-batch_before):.2f} images/sec)")
         after = time.perf_counter()
         delta = after - before
