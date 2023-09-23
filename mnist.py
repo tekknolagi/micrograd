@@ -125,8 +125,8 @@ def set_input(label, pixels):
     for exp in expected_onehot:
         exp.data = 0.0
     expected_onehot[label].data = 1.0
-    for idx, pixel in enumerate(pixels):
-        inp_[idx].data = pixel
+    for inp, pix in zip(inp_, pixels):
+        inp.data = pix
 
 
 def run():
