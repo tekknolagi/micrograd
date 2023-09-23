@@ -150,18 +150,16 @@ def run():
                 loss.grad = 1
                 for node in reverse_topo:
                     node._backward(node)
-            batch_loss += loss.data
-            epoch_loss += loss.data
-            batch_loss /= batch_size
+                batch_loss += loss.data
+                epoch_loss += loss.data
             for p in params:
                 p.data -= 0.1 * p.grad/batch_size
             batch_after = time.perf_counter()
             if batch_idx % 500 == 0:
-                print(f"batch {batch_idx:4d} loss {batch_loss:.2f} took {batch_after-batch_before:.2f} seconds ({batch_size/(batch_after-batch_before):.2f} images/sec)")
+                print(f"batch {batch_idx:4d} loss {batch_loss/batch_size:.2f} ({batch_size/(batch_after-batch_before):.2f} images/sec)")
         after = time.perf_counter()
         delta = after - before
-        epoch_loss /= len(db)
-        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta:.2f} sec)")
+        print(f"...epoch {epoch:4d} loss {epoch_loss/len(db):.2f} (took {delta:.2f} sec)")
 
 
 run()
