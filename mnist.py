@@ -4,12 +4,11 @@ import random
 import struct
 import sys
 import time
+import math
 from micrograd import nn as nn_interp
-from micrograd.engine import Max
-from tqdm import tqdm
+from micrograd.engine import Value, Max
 
 
-tqdm.monitor_interval = 0
 random.seed(1337)
 sys.setrecursionlimit(20000)
 
@@ -17,7 +16,7 @@ sys.setrecursionlimit(20000)
 class image:
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = pixels
+        self.pixels = [float(i)/255 for i in pixels]
 
 
 IMAGE_HEIGHT = 28
@@ -83,45 +82,107 @@ def grouper(n, iterable, fillvalue=None):
     return itertools.zip_longest(fillvalue=fillvalue, *args)
 
 
-def stable_softmax(output):
-    max_ = functools.reduce(Max, output)
-    shiftx = [o-max_ for o in output]
-    exps = [o.exp() for o in shiftx]
-    sum_ = sum(exps)
-    return [o/sum_ for o in exps]
+def stable_softmax(x):
+    max_ = functools.reduce(Max, x)
+    shiftx = [o-max_ for o in x]
+    numerator = [o.exp() for o in shiftx]
+    denominator = sum(numerator)
+    return [o/denominator for o in numerator]
+    # assert max_.data == max(x.data for x in output)
+    # shiftx = [o-max_ for o in output]
+    # exps = [o.exp() for o in shiftx]
+    # sum_ = sum(exps)
+    # return [o/sum_ for o in exps]
 
 
 NUM_DIGITS = 10
 model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 
 
-def loss_of(model, image):
+def logsumexp(x):
+    return (sum(o.exp() for o in x)+1e-15).log()
+
+
+def mean(x):
+    return sum(x)/len(x)
+
+
+def loss_of(model, expected_onehot, image):
     output = model(image.pixels)
+    # print([x.data for x in output])
+    # lse = logsumexp(output)
+    # output = [o-lse for o in output]
     softmax_output = stable_softmax(output)
-    expected_onehot = [0. for _ in range(NUM_DIGITS)]
-    expected_onehot[image.label] = 1.
+    # print([x.data for x in softmax_output])
+    # expected_onehot[image.label] = Value(1.)
+    # result = -mean(list(exp*act for exp, act in zip(expected_onehot, output)))
     result = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
     return result
 
 
-print("Training...")
-num_epochs = 100
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = 1000
-for epoch in range(num_epochs):
-    epoch_loss = 0.
-    before = time.perf_counter()
-    shuffled = db.copy()
-    random.shuffle(shuffled)
-    for batch_idx, batch in tqdm(enumerate(grouper(batch_size, shuffled))):
-        for p in model.parameters():
-            p.grad = 0.0
-        loss = sum(loss_of(model, im) for im in tqdm(batch))
-        loss.backward()
-        epoch_loss += loss.data
-        for p in model.parameters():
-            p.data -= 0.1 * p.grad
-    after = time.perf_counter()
-    delta = after - before
-    epoch_loss /= len(db)
-    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+# testdb = list(images("t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte"))
+# def argmax(output):
+#     return max(enumerate(output), key=lambda x: x[1])[0]
+# def accuracy():
+#     num_correct = 0
+#     for im in testdb:
+#         nn.forward(im.label, im.pixels)
+#         guess = argmax([nn.data(o._id) for o in output])
+#         if guess == im.label:
+#             num_correct += 1
+#     return num_correct/len(testdb)
+im = image(db[0].label, db[0].pixels)
+inp_ = [Value(pixel) for pixel in im.pixels]
+im.pixels = inp_
+expected_onehot = [Value(0.) for _ in range(NUM_DIGITS)]
+loss = loss_of(model, expected_onehot, im)
+topo = loss.topo()
+reverse_topo = reversed(topo)
+params = model.parameters()
+non_params = set(topo)-set(params)
+
+
+def set_input(label, pixels):
+    for exp in expected_onehot:
+        exp.data = 0.0
+    expected_onehot[label].data = 1.0
+    for idx, pixel in enumerate(pixels):
+        inp_[idx].data = pixel
+
+
+def run():
+    print("Training...")
+    num_epochs = 100
+    batch_size = 10
+    for epoch in range(num_epochs):
+        epoch_loss = 0.
+        before = time.perf_counter()
+        shuffled = db.copy()
+        random.shuffle(shuffled)
+        for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+            batch_before = time.perf_counter()
+            batch_loss = 0.
+            for im in batch:
+                set_input(im.label, im.pixels)
+                for node in topo:
+                    node._forward(node)
+                for p in non_params:
+                    p.grad = 0.0
+                loss.grad = 1
+                for node in reverse_topo:
+                    node._backward(node)
+            batch_loss += loss.data
+            epoch_loss += loss.data
+            batch_loss /= batch_size
+            for p in params:
+                p.data -= 0.1 * p.grad/batch_size
+            batch_after = time.perf_counter()
+            if batch_idx % 100 == 0:
+                print(f"batch {batch_idx:4d} loss {batch_loss:.2f} took {batch_after-batch_before:.2f} seconds ({batch_size/(batch_after-batch_before):.2f} images/sec)")
+        after = time.perf_counter()
+        delta = after - before
+        epoch_loss /= len(db)
+        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+
+run()
