@@ -88,11 +88,6 @@ def stable_softmax(x):
     numerator = [o.exp() for o in shiftx]
     denominator = sum(numerator)
     return [o/denominator for o in numerator]
-    # assert max_.data == max(x.data for x in output)
-    # shiftx = [o-max_ for o in output]
-    # exps = [o.exp() for o in shiftx]
-    # sum_ = sum(exps)
-    # return [o/sum_ for o in exps]
 
 
 NUM_DIGITS = 10
@@ -109,29 +104,12 @@ def mean(x):
 
 def loss_of(model, expected_onehot, image):
     output = model(image.pixels)
-    # print([x.data for x in output])
-    # lse = logsumexp(output)
-    # output = [o-lse for o in output]
     softmax_output = stable_softmax(output)
-    # print([x.data for x in softmax_output])
-    # expected_onehot[image.label] = Value(1.)
-    # result = -mean(list(exp*act for exp, act in zip(expected_onehot, output)))
     result = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
     return result
 
 
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-# testdb = list(images("t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte"))
-# def argmax(output):
-#     return max(enumerate(output), key=lambda x: x[1])[0]
-# def accuracy():
-#     num_correct = 0
-#     for im in testdb:
-#         nn.forward(im.label, im.pixels)
-#         guess = argmax([nn.data(o._id) for o in output])
-#         if guess == im.label:
-#             num_correct += 1
-#     return num_correct/len(testdb)
 im = image(db[0].label, db[0].pixels)
 inp_ = [Value(pixel) for pixel in im.pixels]
 im.pixels = inp_
@@ -168,7 +146,7 @@ def run():
                 for node in topo:
                     node._forward(node)
                 for p in non_params:
-                    p.grad = 0.0
+                    p.grad = 0.
                 loss.grad = 1
                 for node in reverse_topo:
                     node._backward(node)
@@ -184,5 +162,6 @@ def run():
         delta = after - before
         epoch_loss /= len(db)
         print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+
 
 run()

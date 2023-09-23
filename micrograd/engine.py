@@ -195,7 +195,7 @@ class Dot(Value):
             self.data = dot(self.left_arr, self.right_arr)
         self._forward = _forward
         def _backward(self):
-            for i in range(len(self.left_arr)):
-                self.left_arr[i].grad += self.right_arr[i].data*self.grad
-                self.right_arr[i].grad += self.left_arr[i].data*self.grad
+            for li, ri in zip(self.left_arr, self.right_arr):
+                li.grad += ri.data*self.grad
+                ri.grad += li.data*self.grad
         self._backward = _backward
