@@ -241,7 +241,6 @@ class Dot(Value):
         assert len(left_arr) == len(right_arr)
         assert left_arr
         super().__init__(dot(left_arr, right_arr), tuple(set(left_arr+right_arr)), 'dot')
-        self.dim = len(left_arr)
         self.left_arr = left_arr
         self.right_arr = right_arr
 
@@ -251,7 +250,7 @@ class Dot(Value):
 
     def backward_compile(self):
         result = []
-        for i in range(self.dim):
+        for i in range(len(self.left_arr)):
             result += self.left_arr[i].setgrad(f"{self.right_arr[i].getdata()}*{self.getgrad()}")
             result += self.right_arr[i].setgrad(f"{self.left_arr[i].getdata()}*{self.getgrad()}")
         return result
