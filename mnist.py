@@ -161,7 +161,7 @@ def run():
         after = time.perf_counter()
         delta = after - before
         epoch_loss /= len(db)
-        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta:.2f} sec)")
 
 
 run()
