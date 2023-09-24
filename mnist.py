@@ -91,7 +91,7 @@ def stable_softmax(x):
 
 NUM_DIGITS = 10
 model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
-db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+db = timer(lambda: list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte")), "Reading dataset...")
 inp_ = [Value(0) for _ in range(DIM)]
 expected_onehot = [Value(0.) for _ in range(NUM_DIGITS)]
 output = model(inp_)
