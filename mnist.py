@@ -123,7 +123,7 @@ def run():
         for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
             batch_before = time.perf_counter()
             batch_loss = 0.
-            for p in params:
+            for p in topo:
                 p.grad = 0.
             for im in batch:
                 set_input(im.label, im.pixels)
