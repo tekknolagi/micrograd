@@ -128,12 +128,12 @@ def run():
             for im in batch:
                 set_input(im.label, im.pixels)
                 for node in topo:
-                    node._forward(node)
+                    node._forward()
                 for p in non_params:
                     p.grad = 0.
                 loss.grad = 1
                 for node in reverse_topo:
-                    node._backward(node)
+                    node._backward()
                 batch_loss += loss.data
                 epoch_loss += loss.data
             for p in params:
