@@ -4,7 +4,7 @@ random.seed(1)
 model = MLP(2, [4, 1])
 batch = [([0, 0], 0), ([0, 1], 1), ([1, 0], 1), ([1, 1], 0)]
 batch_size = len(batch)
-for epoch in range(1000):
+for epoch in range(100):
     model.zero_grad()
     epoch_loss = 0.
     for xs, expected in batch:
@@ -18,4 +18,5 @@ for epoch in range(1000):
 
 
 for im in batch:
-    print(model(im[0]))
+    result = model(im[0])
+    assert abs(result.data-im[1]) < 0.1, f"{result.data:.4f} is not near {im[1]}"
