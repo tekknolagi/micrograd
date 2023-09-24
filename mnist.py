@@ -92,11 +92,9 @@ def stable_softmax(x):
 NUM_DIGITS = 10
 model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-im = image(db[0].label, db[0].pixels)
-inp_ = [Value(pixel) for pixel in im.pixels]
-im.pixels = inp_
+inp_ = [Value(0) for _ in range(DIM)]
 expected_onehot = [Value(0.) for _ in range(NUM_DIGITS)]
-output = model(im.pixels)
+output = model(inp_)
 softmax_output = stable_softmax(output)
 loss = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
 topo = loss.topo()
