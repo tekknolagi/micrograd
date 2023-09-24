@@ -4,7 +4,6 @@ import random
 import struct
 import sys
 import time
-import math
 from micrograd import nn as nn_interp
 from micrograd.engine import Value, Max
 
@@ -92,14 +91,6 @@ def stable_softmax(x):
 
 NUM_DIGITS = 10
 model = timer(lambda: nn_interp.MLP(DIM, [50, NUM_DIGITS]), "Building model...")
-
-
-def logsumexp(x):
-    return (sum(o.exp() for o in x)+1e-15).log()
-
-
-def mean(x):
-    return sum(x)/len(x)
 
 
 def loss_of(model, expected_onehot, image):
