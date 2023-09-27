@@ -14,11 +14,11 @@ random = rrandom.Random()
 
 
 @jit.unroll_safe
-def build_topo(visited, topo, v):
-    if v not in visited:
-        visited[v] = None
+def build_topo(topo, v):
+    if not v._visited:
+        v._visited = True
         for child in v._prev:
-            build_topo(visited, topo, child)
+            build_topo(topo, child)
         topo.append(v)
 
 class Value(object):
@@ -30,6 +30,7 @@ class Value(object):
         # internal variables used for autograd graph construction
         self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
+        self._visited = False
 
     def _backward(self): pass
 
@@ -68,8 +69,7 @@ class Value(object):
     def topo(self):
         # topological order all of the children in the graph
         topo = []
-        visited = {}
-        build_topo(visited, topo, self)
+        build_topo(topo, self)
         return topo
 
     @jit.unroll_safe
@@ -150,13 +150,14 @@ class Module(object):
     def zero_grad(self):
         for p in self.parameters():
             p.grad = 0
+            p._visited = False
 
     @jit.elidable
     def parameters(self):
         return []
 
 class Neuron(object):
-    _immutable_fields_ = ['w[*]', '_parameters[*]']
+    _immutable_fields_ = ['w[*]', '_parameters[*]', 'b', 'nonlin']
 
     def __init__(self, nin, nonlin=True):
         self.w = [Value(random.random(), [], 'weight') for _ in range(nin)]
@@ -347,6 +348,7 @@ def main():
             print "   ", batch_idx
             for p in model.parameters():
                 p.grad = 0.0
+                p._visited = False
             loss = Value(0.0)
             for im in batch:
                 loss = loss.add(loss_of(model, im))

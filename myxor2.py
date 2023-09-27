@@ -12,12 +12,18 @@ random.seed(4)
 def main(args):
     model = MLP(2, [6, 1])
     batch = [([0, 0], 0), ([0, 1], 1), ([1, 0], 1), ([1, 1], 0)]
-    for epoch in range(1000):
+    if len(args) == 2:
+        epochs = int(args[1])
+    else:
+        epochs = 1000
+    for epoch in range(epochs):
         driver.jit_merge_point(model=model)
 
         model.zero_grad()
         epoch_loss = 0.
         jit.promote(len(batch))
+        for xs, _ in batch:
+            jit.promote(len(xs))
         outputs = [model.evalmlp([Value(x) for x in xs])[0] for xs, _ in batch]
         expected = [exp for _, exp in batch]
         loss = Value(0.0)
@@ -28,6 +34,7 @@ def main(args):
             loss = loss.add(x)
         loss = loss.mul(Value(1.0 / len(expected)))
         loss.backward()
+        epoch_loss += loss.data
         for p in model.parameters():
             p.data -= 0.1 * p.grad / len(batch)
         if epoch % 100 == 0:
