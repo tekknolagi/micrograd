@@ -1,3 +1,4 @@
+import sys
 from rpython.rlib import jit
 import random
 from mnist import MLP, Value
@@ -10,12 +11,27 @@ driver = jit.JitDriver(
 random.seed(4)
 
 def main(args):
-    model = MLP(2, [6, 1])
-    batch = [([0, 0], 0), ([0, 1], 1), ([1, 0], 1), ([1, 1], 0)]
-    if len(args) == 2:
+    # crappy argument handling
+    for i in range(len(args)):
+        if args[i] == "--jit":
+            if len(args) == i + 1:
+                print "missing argument after --jit"
+                return 2
+            jitarg = args[i + 1]
+            del args[i:i+2]
+            jit.set_user_param(None, jitarg)
+            break
+    if len(args) >= 2:
         epochs = int(args[1])
+        del args[1]
     else:
         epochs = 1000
+    layers = 6
+    if len(args) >= 2:
+        layers = int(args[1])
+        del args[1]
+    model = MLP(2, [layers, 1])
+    batch = [([0, 0], 0), ([0, 1], 1), ([1, 0], 1), ([1, 1], 0)]
     for epoch in range(epochs):
         driver.jit_merge_point(model=model)
 
@@ -51,4 +67,4 @@ def target(*args):
     return main
 
 if __name__ == '__main__':
-    main([])
+    main(sys.argv)
