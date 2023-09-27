@@ -311,10 +311,10 @@ def loss_of(model, image):
     softmax_output = stable_softmax(output)
     expected_onehot = [0. for _ in range(NUM_DIGITS)]
     expected_onehot[image.label] = 1.
-    result = 0.0
+    result = Value(0.0)
     for exp, act in zip(expected_onehot, softmax_output):
-        result += act.mul(0.0001).mul(exp).log()
-    return -result
+        result = result.add(act.add(0.0001).log().mul(exp))
+    return result.mul(-1)
 
 
 def main():
@@ -332,7 +332,9 @@ def main():
             print "   ", batch_idx
             for p in model.parameters():
                 p.grad = 0.0
-            loss = sum(loss_of(model, im) for im in batch)
+            loss = Value(0.0)
+            for im in batch:
+                loss = loss.add(loss_of(model, im))
             loss.backward()
             epoch_loss += loss.data
             for p in model.parameters():
