@@ -13,40 +13,6 @@ from rpython.rlib import rrandom
 random = rrandom.Random()
 
 
-def _backward_add(out):
-    self, other = out._prev
-    self.grad += out.grad
-    other.grad += out.grad
-
-
-def _backward_mul(out):
-    self, other = out._prev
-    self.grad += other.data * out.grad
-    other.grad += self.data * out.grad
-
-
-def _backward_pow(out):
-    self, = out._prev
-    other = int(out._op[2:])
-    assert other == 2
-    #self.grad += (other * self.data**(other-1)) * out.grad
-    self.grad += (other * self.data) * out.grad
-
-
-def _backward_relu(out):
-    self, = out._prev
-    self.grad += (out.data > 0) * out.grad
-
-
-def _backward_log(out):
-    self, = out._prev
-    self.grad += 1/self.data * out.grad
-
-
-def _backward_exp(out):
-    self, = out._prev
-    self.grad += math.exp(self.data) * out.grad
-
 @jit.unroll_safe
 def build_topo(visited, topo, v):
     if v not in visited:
@@ -62,18 +28,17 @@ class Value(object):
         self.data = data
         self.grad = 0
         # internal variables used for autograd graph construction
-        self._backward = lambda v: None
         self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
+    def _backward(self): pass
+
     def add(self, other):
-        out = Value(self.data + other.data, [self, other], '+')
-        out._backward = _backward_add
+        out = AddValue(self.data + other.data, [self, other], '+')
         return out
 
     def mul(self, other):
-        out = Value(self.data * other.data, [self, other], '*')
-        out._backward = _backward_mul
+        out = MulValue(self.data * other.data, [self, other], '*')
         return out
 
     def sub(self, other):
@@ -82,26 +47,22 @@ class Value(object):
     def pow(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
         assert other == 2
-        out = Value(self.data * self.data, [self], '**'+str(other))
-        out._backward = _backward_pow
+        out = PowValue(self.data * self.data, [self], '**'+str(other))
         return out
 
     def div(self, other): # self / other
         return self.mul(other.pow(-1))
 
     def relu(self):
-        out = Value(0 if self.data < 0 else self.data, [self], 'ReLU')
-        out._backward = _backward_relu
+        out = ReluValue(0 if self.data < 0 else self.data, [self], 'ReLU')
         return out
 
     def log(self):
-        out = Value(math.log(self.data), [self], 'log')
-        out._backward = _backward_log
+        out = LogValue(math.log(self.data), [self], 'log')
         return out
 
     def exp(self):
-        out = Value(math.exp(self.data), [self], 'exp')
-        out._backward = _backward_exp
+        out = ExpValue(math.exp(self.data), [self], 'exp')
         return out
 
     def topo(self):
@@ -117,7 +78,7 @@ class Value(object):
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
         for v in reversed(topo):
-            v._backward(v)
+            v._backward()
 
     # def __neg__(self): # -self
     #     return self * -1
@@ -141,6 +102,42 @@ class Value(object):
         return "Value(data=%s, grad=%s)" % (self.data, self.grad)
 
 
+class AddValue(Value):
+    def _backward(out):
+        self, other = out._prev
+        self.grad += out.grad
+        other.grad += out.grad
+
+class MulValue(Value):
+    def _backward(out):
+        self, other = out._prev
+        self.grad += other.data * out.grad
+        other.grad += self.data * out.grad
+
+class PowValue(Value):
+    def _backward(out):
+        self, = out._prev
+        other = int(out._op[2:])
+        assert other == 2
+        #self.grad += (other * self.data**(other-1)) * out.grad
+        self.grad += (other * self.data) * out.grad
+
+class ReluValue(Value):
+    def _backward(out):
+        self, = out._prev
+        self.grad += (out.data > 0) * out.grad
+
+
+class LogValue(Value):
+    def _backward(out):
+        self, = out._prev
+        self.grad += 1/self.data * out.grad
+
+class ExpValue(Value):
+    def _backward(out):
+        self, = out._prev
+        self.grad += math.exp(self.data) * out.grad
+
 class Max(Value):
     def __init__(self, left, right):
         Value.__init__(self, max(left.data, right.data), [left, right], 'max')
@@ -154,16 +151,18 @@ class Module(object):
         for p in self.parameters():
             p.grad = 0
 
+    @jit.elidable
     def parameters(self):
         return []
 
 class Neuron(object):
-    _immutable_fields_ = ['w[*]']
+    _immutable_fields_ = ['w[*]', '_parameters[*]']
 
     def __init__(self, nin, nonlin=True):
         self.w = [Value(random.random(), [], 'weight') for _ in range(nin)]
         self.b = Value(0, [], 'bias')
         self.nonlin = nonlin
+        self._parameters = (self.w + [self.b])[:]
 
     @jit.unroll_safe
     def zero_grad(self):
@@ -183,18 +182,18 @@ class Neuron(object):
         # act = sum([wi*xi for wi,xi in zip(self.w, x)], self.b)
         # return act.relu() if self.nonlin else act
 
-    @jit.unroll_safe
     def parameters(self):
-        return self.w + [self.b]
+        return self._parameters
 
     def __repr__(self):
         return "%sNeuron(%s)" % ('ReLU' if self.nonlin else 'Linear', len(self.w))
 
 class Layer(Module):
-    _immutable_fields_ = ['neurons[*]']
+    _immutable_fields_ = ['neurons[*]', '_parameters[*]']
 
     def __init__(self, nin, nout, nonlin):
         self.neurons = [Neuron(nin, nonlin) for _ in range(nout)]
+        self._parameters = [p for n in self.neurons for p in n.parameters()][:]
 
     @jit.unroll_safe
     def evallayer(self, x):
@@ -202,19 +201,19 @@ class Layer(Module):
         return out
         # return out[0] if len(out) == 1 else out
 
-    @jit.unroll_safe
     def parameters(self):
-        return [p for n in self.neurons for p in n.parameters()]
+        return self._parameters
 
     def __repr__(self):
         return "Layer of [%s]" % (', '.join(str(n) for n in self.neurons))
 
 class MLP(Module):
-    _immutable_fields_ = ['layers[*]']
+    _immutable_fields_ = ['layers[*]', '_parameters[*]']
 
     def __init__(self, nin, nouts):
         sz = [nin] + nouts
         self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
+        self._parameters = [p for layer in self.layers for p in layer.parameters()][:]
 
     @jit.unroll_safe
     def evalmlp(self, x):
@@ -222,9 +221,8 @@ class MLP(Module):
             x = layer.evallayer(x)
         return x
 
-    @jit.unroll_safe
     def parameters(self):
-        return [p for layer in self.layers for p in layer.parameters()]
+        return self._parameters
 
     def __repr__(self):
         return "MLP of [%s]" % (', '.join(str(layer) for layer in self.layers))
