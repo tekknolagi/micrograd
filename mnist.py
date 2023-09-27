@@ -1,5 +1,3 @@
-import functools
-import itertools
 import random
 import struct
 import sys
@@ -48,8 +46,8 @@ class Value(object):
 
     def pow(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
-        assert other == 2
-        out = PowValue(self.data * self.data, [self], '**'+str(other))
+        out = PowValue(math.pow(self.data, other), [self], '**')
+        out.exponent = other
         return out
 
     def div(self, other): # self / other
@@ -118,10 +116,8 @@ class MulValue(Value):
 class PowValue(Value):
     def _backward(out):
         self, = out._prev
-        other = int(out._op[2:])
-        assert other == 2
         #self.grad += (other * self.data**(other-1)) * out.grad
-        self.grad += (other * self.data) * out.grad
+        self.grad += (out.exponent * math.pow(self.data, out.exponent)) * out.grad
 
 class ReluValue(Value):
     def _backward(out):
@@ -142,8 +138,13 @@ class ExpValue(Value):
 class Max(Value):
     def __init__(self, left, right):
         Value.__init__(self, max(left.data, right.data), [left, right], 'max')
-    # TODO(max): Copy _backward from code/micrograd
 
+    def _backward(self):
+        left, right = self._prev
+        if left.data > right.data:
+            left.grad += self.grad
+        else:
+            right.grad += self.grad
 
 class Module(object):
 
@@ -235,7 +236,7 @@ sys.setrecursionlimit(20000)
 class image(object):
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = [ord(x) for x in pixels]
+        self.pixels = pixels
 
 
 IMAGE_HEIGHT = 28
@@ -298,18 +299,23 @@ def timer(lam, msg=""):
 
 def grouper(n, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
-    it = iter(iterable)
-    while 1:
-        res = []
-        for i in range(n):
-            res.append(next(it, fillvalue))
-        yield tuple(res)
-        if res[-1] == fillvalue:
-            break
-
+    allres = []
+    currlist = []
+    for x in iterable:
+        currlist.append(x)
+        if len(currlist) == n:
+            allres.append(currlist)
+            currlist = []
+    if len(currlist) < n:
+        for i in range(len(currlist), n):
+            currlist.append(fillvalue)
+        allres.append(currlist)
+    return allres
 
 def stable_softmax(output):
-    max_ = functools.reduce(Max, output)
+    max_ = output[0]
+    for i in range(1, len(output)):
+        max_ = Max(max_, output[i])
     shiftx = [o.sub(max_) for o in output]
     exps = [o.exp() for o in shiftx]
     sum_ = exps[0]
@@ -322,47 +328,55 @@ NUM_DIGITS = 10
 
 
 def loss_of(model, image):
-    output = model.evalmlp(image.pixels)
+    output = model.evalmlp([Value(ord(x)) for x in image.pixels])
     softmax_output = stable_softmax(output)
     expected_onehot = [0. for _ in range(NUM_DIGITS)]
     expected_onehot[image.label] = 1.
     result = Value(0.0)
-    for exp, act in zip(expected_onehot, softmax_output):
-        result = result.add(act.add(0.0001).log().mul(exp))
+    for i in range(len(expected_onehot)):
+        exp = expected_onehot[i]
+        act = softmax_output[i]
+        result = result.add(act.add(Value(0.0001)).log().mul(Value(exp)))
     return result.mul(Value(-1))
 
-
-def main():
+def make_main():
     model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
-    print("Training...")
-    num_epochs = 100
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-    batch_size = 10
-    for epoch in range(num_epochs):
-        print epoch
-        epoch_loss = 0.
-        before = time.time()
-        shuffled = db[:]
-        #random.shuffle(shuffled)
-        for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
-            print "   ", batch_idx
-            for p in model.parameters():
-                p.grad = 0.0
-                p._visited = False
-            loss = Value(0.0)
-            for im in batch:
-                loss = loss.add(loss_of(model, im))
-            loss.backward()
-            epoch_loss += loss.data
-            for p in model.parameters():
-                p.data -= 0.1 * p.grad
-        after = time.time()
-        delta = after - before
-        epoch_loss /= len(db)
-        print "...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)".format(epoch=epoch, epoch_loss=epoch_loss, delta=delta)
+
+    def main(args):
+        print("Training...")
+        num_epochs = 100
+        batch_size = 10
+        for epoch in range(num_epochs):
+            print epoch
+            epoch_loss = 0.
+            before = time.time()
+            shuffled = db[:]
+            #random.shuffle(shuffled)
+            for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+                print "   ", batch_idx
+                for p in model.parameters():
+                    p.grad = 0.0
+                    p._visited = False
+                loss = Value(0.0)
+                for im in batch:
+                    loss = loss.add(loss_of(model, im))
+                loss.backward()
+                epoch_loss += loss.data
+                for p in model.parameters():
+                    p.data -= 0.1 * p.grad
+            after = time.time()
+            delta = after - before
+            epoch_loss /= len(db)
+            print "...epoch %s loss %s took %s sec)" % (epoch, epoch_loss, delta)
+        return 0
+    return main
+
+def target(*args):
+    return make_main()
 
 if __name__ == '__main__':
     try:
-        main()
+        make_main()(sys.argv)
     except:
         import pdb;pdb.xpm()
