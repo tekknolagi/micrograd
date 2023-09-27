@@ -328,7 +328,14 @@ def stable_softmax(output):
 
 NUM_DIGITS = 10
 
+def randbelow(n):
+    return int(n * random.random())
 
+def shuffle(x):
+    for i in range(len(x)-1, 0, -1):
+        # pick an element in x[:i+1] with which to exchange x[i]
+        j = randbelow(i + 1)
+        x[i], x[j] = x[j], x[i]
 def loss_of(model, image):
     output = model.evalmlp([Value(ord(x)) for x in image.pixels])
     softmax_output = stable_softmax(output)
