@@ -23,6 +23,7 @@ def build_topo(topo, v):
 
 class Value(object):
     """ stores a single scalar value and its gradient """
+    _immutable_fields_ = ['prev[*]']
 
     def __init__(self, data, _children=[], _op=''):
         self.data = data
@@ -55,7 +56,7 @@ class Value(object):
         return self.mul(other.pow(-1))
 
     def relu(self):
-        out = ReluValue(0 if self.data < 0 else self.data, [self], 'ReLU')
+        out = ReluValue((self.data > 0) * self.data, [self], 'ReLU')
         return out
 
     def log(self):
@@ -173,13 +174,12 @@ class Neuron(object):
     @jit.unroll_safe
     def evalneuron(self, x):
         # assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
-        result = Value(0.0)
+        result = self.b
         for i in range(len(x)):
             result = result.add(self.w[i].mul(x[i]))
         # for wi, xi in zip(self.w, x):
         #     result = result.add(wi.mul(xi))
-        act = result.add(self.b)
-        return act.relu() if self.nonlin else act
+        return result.relu() if self.nonlin else result
         # act = sum([wi*xi for wi,xi in zip(self.w, x)], self.b)
         # return act.relu() if self.nonlin else act
 
