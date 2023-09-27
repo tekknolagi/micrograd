@@ -6,6 +6,7 @@ import sys
 import time
 import math
 
+from rpython.rlib import jit
 from rpython.rlib import rrandom
 
 
@@ -27,7 +28,9 @@ def _backward_mul(out):
 def _backward_pow(out):
     self, = out._prev
     other = int(out._op[2:])
-    self.grad += (other * self.data**(other-1)) * out.grad
+    assert other == 2
+    #self.grad += (other * self.data**(other-1)) * out.grad
+    self.grad += (other * self.data) * out.grad
 
 
 def _backward_relu(out):
@@ -44,7 +47,7 @@ def _backward_exp(out):
     self, = out._prev
     self.grad += math.exp(self.data) * out.grad
 
-
+@jit.unroll_safe
 def build_topo(visited, topo, v):
     if v not in visited:
         visited[v] = None
@@ -64,23 +67,22 @@ class Value(object):
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
     def add(self, other):
-        other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data + other.data, [self, other], '+')
         out._backward = _backward_add
         return out
 
     def mul(self, other):
-        other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data * other.data, [self, other], '*')
         out._backward = _backward_mul
         return out
 
     def sub(self, other):
-        return self.add(other.mul(-1))
+        return self.add(other.mul(Value(-1)))
 
     def pow(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
-        out = Value(self.data**other, [self], '**'+str(other))
+        assert other == 2
+        out = Value(self.data * self.data, [self], '**'+str(other))
         out._backward = _backward_pow
         return out
 
@@ -109,7 +111,7 @@ class Value(object):
         build_topo(visited, topo, self)
         return topo
 
-
+    @jit.unroll_safe
     def backward(self):
         topo = self.topo()
         # go one variable at a time and apply the chain rule to get its gradient
@@ -136,7 +138,7 @@ class Value(object):
     #     return other * self**-1
 
     def __repr__(self):
-        return "Value(data=%, grad=%)" % (self.data, self.grad)
+        return "Value(data=%s, grad=%s)" % (self.data, self.grad)
 
 
 class Max(Value):
@@ -145,8 +147,9 @@ class Max(Value):
     # TODO(max): Copy _backward from code/micrograd
 
 
-class Module:
+class Module(object):
 
+    @jit.unroll_safe
     def zero_grad(self):
         for p in self.parameters():
             p.grad = 0
@@ -154,14 +157,21 @@ class Module:
     def parameters(self):
         return []
 
-class Neuron(Module):
+class Neuron(object):
+    _immutable_fields_ = ['w[*]']
 
     def __init__(self, nin, nonlin=True):
         self.w = [Value(random.random(), [], 'weight') for _ in range(nin)]
         self.b = Value(0, [], 'bias')
         self.nonlin = nonlin
 
-    def eval(self, x):
+    @jit.unroll_safe
+    def zero_grad(self):
+        for p in self.parameters():
+            p.grad = 0
+
+    @jit.unroll_safe
+    def evalneuron(self, x):
         # assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
         result = Value(0.0)
         for i in range(len(x)):
@@ -173,6 +183,7 @@ class Neuron(Module):
         # act = sum([wi*xi for wi,xi in zip(self.w, x)], self.b)
         # return act.relu() if self.nonlin else act
 
+    @jit.unroll_safe
     def parameters(self):
         return self.w + [self.b]
 
@@ -180,15 +191,18 @@ class Neuron(Module):
         return "%sNeuron(%s)" % ('ReLU' if self.nonlin else 'Linear', len(self.w))
 
 class Layer(Module):
+    _immutable_fields_ = ['neurons[*]']
 
     def __init__(self, nin, nout, nonlin):
         self.neurons = [Neuron(nin, nonlin) for _ in range(nout)]
 
-    def eval(self, x):
-        out = [n.eval(x) for n in self.neurons]
+    @jit.unroll_safe
+    def evallayer(self, x):
+        out = [n.evalneuron(x) for n in self.neurons]
         return out
         # return out[0] if len(out) == 1 else out
 
+    @jit.unroll_safe
     def parameters(self):
         return [p for n in self.neurons for p in n.parameters()]
 
@@ -196,16 +210,19 @@ class Layer(Module):
         return "Layer of [%s]" % (', '.join(str(n) for n in self.neurons))
 
 class MLP(Module):
+    _immutable_fields_ = ['layers[*]']
 
     def __init__(self, nin, nouts):
         sz = [nin] + nouts
         self.layers = [Layer(sz[i], sz[i+1], nonlin=i!=len(nouts)-1) for i in range(len(nouts))]
 
-    def eval(self, x):
+    @jit.unroll_safe
+    def evalmlp(self, x):
         for layer in self.layers:
-            x = layer.eval(x)
+            x = layer.evallayer(x)
         return x
 
+    @jit.unroll_safe
     def parameters(self):
         return [p for layer in self.layers for p in layer.parameters()]
 
@@ -303,21 +320,21 @@ def stable_softmax(output):
 
 
 NUM_DIGITS = 10
-model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
 
 
 def loss_of(model, image):
-    output = model.eval(image.pixels)
+    output = model.evalmlp(image.pixels)
     softmax_output = stable_softmax(output)
     expected_onehot = [0. for _ in range(NUM_DIGITS)]
     expected_onehot[image.label] = 1.
     result = Value(0.0)
     for exp, act in zip(expected_onehot, softmax_output):
         result = result.add(act.add(0.0001).log().mul(exp))
-    return result.mul(-1)
+    return result.mul(Value(-1))
 
 
 def main():
+    model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
     print("Training...")
     num_epochs = 100
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
