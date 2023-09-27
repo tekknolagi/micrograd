@@ -364,7 +364,8 @@ if not args.use_existing:
     # https://shwina.github.io/custom-compiler-linker-extensions/
     include_dir = sysconfig.get_python_inc()
     timer(
-        lambda: os.system(f"tcc -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        # lambda: os.system(f"clang -O2 -march=native -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
+        lambda: os.system(f"clang -O1 -DNDEBUG -g -shared -fPIC -I{include_dir} nn.c -o {lib_file}"),
         "Compiling extension...",
     )
 spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
@@ -384,28 +385,63 @@ def accuracy():
             num_correct += 1
     return num_correct/len(testdb)
 batch_size = 20
-for epoch in range(num_epochs):
-    epoch_loss = 0
-    before = time.perf_counter()
-    shuffled = traindb.copy()
-    random.shuffle(shuffled)
-    for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
-        nn.zero_grad()
-        batch_loss = 0
-        for im in batch:
-            im_loss = nn.forward(im.label, im.pixels)
-            outs = [nn.data(o._id) for o in softmax_output]
-            assert not any(math.isnan(o) for o in outs)
-            assert not math.isnan(im_loss)
-            assert not math.isinf(im_loss)
-            batch_loss += im_loss
-            epoch_loss += im_loss
-            nn.backward()
-        batch_loss /= batch_size
-        nn.update(epoch, batch_size)
-        if batch_idx % 500 == 0:
-            print(f"batch {batch_idx:4d} loss {batch_loss:.2f}")
-    after = time.perf_counter()
-    delta = after - before
-    epoch_loss /= len(traindb)
-    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} acc {accuracy():.2f} (took {delta} sec)")
+losses = [0]
+accuracies = []
+for im in traindb:
+    losses[0] += nn.forward(im.label, im.pixels)
+losses[0] /= len(traindb)
+accuracies.append(accuracy())
+try:
+    for epoch in range(num_epochs):
+        epoch_loss = 0
+        before = time.perf_counter()
+        shuffled = traindb.copy()
+        random.shuffle(shuffled)
+        for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+            nn.zero_grad()
+            batch_loss = 0
+            for im in batch:
+                im_loss = nn.forward(im.label, im.pixels)
+                outs = [nn.data(o._id) for o in softmax_output]
+                assert not any(math.isnan(o) for o in outs)
+                assert not math.isnan(im_loss)
+                assert not math.isinf(im_loss)
+                batch_loss += im_loss
+                epoch_loss += im_loss
+                nn.backward()
+            batch_loss /= batch_size
+            nn.update(epoch, batch_size)
+            if batch_idx % 500 == 0:
+                print(f"batch {batch_idx:4d} loss {batch_loss:.2f}")
+        after = time.perf_counter()
+        delta = after - before
+        epoch_loss /= len(traindb)
+        images_sec = len(traindb)/delta
+        losses.append(epoch_loss)
+        accuracies.append(accuracy())
+        print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} acc {accuracy():.2f} (took {delta:.2f} sec: {images_sec:.2f} images/ec)")
+except KeyboardInterrupt:
+    num_dead = 0
+    for p in model.parameters():
+        if abs(nn.data(p._id)) < 0.1:
+            num_dead += 1
+    num_params = len(model.parameters())
+    print(f"{num_dead}/{num_params} ({num_dead/num_params*100:.2f}%) weights are dead")
+    import matplotlib.pyplot as plt
+    fig, ax1 = plt.subplots()
+    color = 'tab:red'
+    ax1.set_xlabel('epoch #')
+    ax1.minorticks_off()
+    ax1.set_ylabel('loss', color=color)
+    ax1.plot(range(len(losses)), losses, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    color = 'tab:blue'
+    ax2.set_ylabel('accuracy', color=color)  # we already handled the x-label with ax1
+    ax2.plot(range(len(accuracies)), accuracies, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.savefig('is_this_loss.png')
+    plt.savefig('is_this_loss.pdf')
+    plt.savefig('is_this_loss.svg')
+    plt.show()
