@@ -1,7 +1,7 @@
 import random
 from micrograd.engine import Value
 
-class Module:
+class Module(object):
 
     def zero_grad(self):
         for p in self.parameters():
@@ -25,7 +25,7 @@ class Neuron(Module):
         return self.w + [self.b]
 
     def __repr__(self):
-        return f"{'ReLU' if self.nonlin else 'Linear'}Neuron({len(self.w)})"
+        return "{'ReLU' if self.nonlin else 'Linear'}Neuron(%s)" % (len(self.w), )
 
 class Layer(Module):
 
@@ -40,7 +40,7 @@ class Layer(Module):
         return [p for n in self.neurons for p in n.parameters()]
 
     def __repr__(self):
-        return f"Layer of [{', '.join(str(n) for n in self.neurons)}]"
+        return "Layer of [{', '.join(str(n) for n in self.neurons)}]"
 
 class MLP(Module):
 
@@ -57,4 +57,4 @@ class MLP(Module):
         return [p for layer in self.layers for p in layer.parameters()]
 
     def __repr__(self):
-        return f"MLP of [{', '.join(str(layer) for layer in self.layers)}]"
+        return "MLP of [{', '.join(str(layer) for layer in self.layers)}]"

@@ -6,18 +6,16 @@ import sys
 import time
 from micrograd import nn as nn_interp
 from micrograd.engine import Max
-from tqdm import tqdm
 
 
-tqdm.monitor_interval = 0
 random.seed(1337)
 sys.setrecursionlimit(20000)
 
 
-class image:
+class image(object):
     def __init__(self, label, pixels):
         self.label = label
-        self.pixels = pixels
+        self.pixels = [ord(x) for x in pixels]
 
 
 IMAGE_HEIGHT = 28
@@ -49,7 +47,7 @@ class images:
     def read_image(self):
         label_bytes = self.labels.read(1)
         assert label_bytes
-        label = int.from_bytes(label_bytes, "big")
+        label = ord(label_bytes)
         pixels = self.images.read(PIXEL_LENGTH)
         assert pixels
         self.idx += 1
@@ -58,7 +56,7 @@ class images:
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def next(self):
         if self.idx >= self.num_images:
             raise StopIteration
         return self.read_image()
@@ -68,19 +66,26 @@ class images:
 
 
 def timer(lam, msg=""):
-    print(msg, end=" ")
-    before = time.perf_counter()
+    print msg,
+    before = time.time()
     result = lam()
-    after = time.perf_counter()
+    after = time.time()
     delta = after - before
-    print(f"({delta:.2f} s)")
+    print "({delta:.2f} s)".format(delta=delta)
     return result
+
 
 
 def grouper(n, iterable, fillvalue=None):
     "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return itertools.zip_longest(fillvalue=fillvalue, *args)
+    it = iter(iterable)
+    while 1:
+        res = []
+        for i in range(n):
+            res.append(next(it, fillvalue))
+        yield tuple(res)
+        if res[-1] == fillvalue:
+            break
 
 
 def stable_softmax(output):
@@ -104,24 +109,33 @@ def loss_of(model, image):
     return result
 
 
-print("Training...")
-num_epochs = 100
-db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
-batch_size = 1000
-for epoch in range(num_epochs):
-    epoch_loss = 0.
-    before = time.perf_counter()
-    shuffled = db.copy()
-    random.shuffle(shuffled)
-    for batch_idx, batch in tqdm(enumerate(grouper(batch_size, shuffled))):
-        for p in model.parameters():
-            p.grad = 0.0
-        loss = sum(loss_of(model, im) for im in tqdm(batch))
-        loss.backward()
-        epoch_loss += loss.data
-        for p in model.parameters():
-            p.data -= 0.1 * p.grad
-    after = time.perf_counter()
-    delta = after - before
-    epoch_loss /= len(db)
-    print(f"...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)")
+def main():
+    print("Training...")
+    num_epochs = 100
+    db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+    batch_size = 1000
+    for epoch in range(num_epochs):
+        print epoch
+        epoch_loss = 0.
+        before = time.time()
+        shuffled = db[:]
+        random.shuffle(shuffled)
+        for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
+            print "   ", batch_idx, len(shuffled)
+            for p in model.parameters():
+                p.grad = 0.0
+            loss = sum(loss_of(model, im) for im in batch)
+            loss.backward()
+            epoch_loss += loss.data
+            for p in model.parameters():
+                p.data -= 0.1 * p.grad
+        after = time.time()
+        delta = after - before
+        epoch_loss /= len(db)
+        print "...epoch {epoch:4d} loss {epoch_loss:.2f} (took {delta} sec)".format(epoch=epoch, epoch_loss=epoch_loss, delta=delta)
+
+if __name__ == '__main__':
+    try:
+        main()
+    except:
+        import pdb;pdb.xpm()

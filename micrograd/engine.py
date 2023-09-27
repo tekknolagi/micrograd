@@ -1,6 +1,7 @@
+from __future__ import division
 import math
 
-class Value:
+class Value(object):
     """ stores a single scalar value and its gradient """
     __slots__ = ("data", "grad", "_backward", "_prev", "_op")
 
@@ -11,6 +12,9 @@ class Value:
         self._backward = lambda: None
         self._prev = _children
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
+
+    def _backward(self):
+        pass
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
@@ -36,7 +40,7 @@ class Value:
 
     def __pow__(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
-        out = Value(self.data**other, (self,), f'**{other}')
+        out = Value(self.data**other, (self,), '**' + str(other))
 
         def _backward():
             self.grad += (other * self.data**(other-1)) * out.grad
@@ -100,19 +104,19 @@ class Value:
     def __rmul__(self, other): # other * self
         return self * other
 
-    def __truediv__(self, other): # self / other
+    def __div__(self, other): # self / other
         return self * other**-1
 
-    def __rtruediv__(self, other): # other / self
+    def __rdiv__(self, other): # other / self
         return other * self**-1
 
     def __repr__(self):
-        return f"Value(data={self.data}, grad={self.grad})"
+        return "Value(data={self.data}, grad={self.grad})"
 
 
 class Max(Value):
     def __init__(self, left, right):
-        super().__init__(max(left.data, right.data), (left, right), 'max')
+        Value.__init__(self, max(left.data, right.data), (left, right), 'max')
         def _backward():
             if left.data > right.data:
                 left.grad += self.grad
