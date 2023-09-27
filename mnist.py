@@ -137,14 +137,16 @@ class ExpValue(Value):
 
 class Max(Value):
     def __init__(self, left, right):
-        Value.__init__(self, max(left.data, right.data), [left, right], 'max')
+        left_bigger = float(left.data > right.data)
+        # bad branch-free way to write max :-(
+        result = left_bigger * left.data + (1.0 - left_bigger) * right.data
+        Value.__init__(self, result, [left, right], 'max')
 
     def _backward(self):
         left, right = self._prev
-        if left.data > right.data:
-            left.grad += self.grad
-        else:
-            right.grad += self.grad
+        left_bigger = float(left.data > right.data)
+        left.grad += left_bigger * self.grad
+        right.grad += (1.0 - left_bigger) * self.grad
 
 class Module(object):
 
