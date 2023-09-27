@@ -236,6 +236,7 @@ sys.setrecursionlimit(20000)
 
 
 class image(object):
+    _immutable_fields_ = ['labels', 'pixels']
     def __init__(self, label, pixels):
         self.label = label
         self.pixels = pixels
@@ -321,8 +322,8 @@ def stable_softmax(output):
     shiftx = [o.sub(max_) for o in output]
     exps = [o.exp() for o in shiftx]
     sum_ = exps[0]
-    for x in exps[1:]:
-        sum_ = sum_.add(x)
+    for index in range(1, len(exps)):
+        sum_ = sum_.add(exps[index])
     return [o.div(sum_) for o in exps]
 
 
@@ -336,6 +337,8 @@ def shuffle(x):
         # pick an element in x[:i+1] with which to exchange x[i]
         j = randbelow(i + 1)
         x[i], x[j] = x[j], x[i]
+
+@jit.unroll_safe
 def loss_of(model, image):
     output = model.evalmlp([Value(ord(x)) for x in image.pixels])
     softmax_output = stable_softmax(output)
@@ -351,25 +354,57 @@ def loss_of(model, image):
 def make_main():
     model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
+    driver = jit.JitDriver(greens=[], reds='auto')
+
+    @jit.dont_look_inside
+    def shuffle_and_group(batch_size, num_training_images):
+        if num_training_images < 0:
+            l = db[:]
+        else:
+            l = db[:num_training_images]
+        shuffle(l)
+        return grouper(batch_size, l)
 
     def main(args):
         print("Training...")
-        num_epochs = 100
-        batch_size = 10
+        for i in range(len(args)):
+            if args[i] == "--jit":
+                if len(args) == i + 1:
+                    print "missing argument after --jit"
+                    return 2
+                jitarg = args[i + 1]
+                del args[i:i+2]
+                jit.set_user_param(None, jitarg)
+                break
+        if len(args) >= 2:
+            num_epochs = int(args[1])
+            del args[1]
+        else:
+            num_epochs = 100
+        if len(args) >= 2:
+            batch_size = int(args[1])
+            del args[1]
+        else:
+            batch_size = 10
+        if len(args) >= 2:
+            num_training_images = int(args[1])
+            del args[1]
+        else:
+            num_training_images = -1
         for epoch in range(num_epochs):
             print epoch
             epoch_loss = 0.
             before = time.time()
-            shuffled = db[:]
-            #random.shuffle(shuffled)
-            for batch_idx, batch in enumerate(grouper(batch_size, shuffled)):
-                print "   ", batch_idx
-                for p in model.parameters():
-                    p.grad = 0.0
-                    p._visited = False
+            batches = shuffle_and_group(batch_size, num_training_images)
+            for batch_idx, batch in enumerate(batches):
+                driver.jit_merge_point()
+                print "   ", batch_idx, "of", len(batches)
+                model.zero_grad()
                 loss = Value(0.0)
+                jit.promote(len(batch))
                 for im in batch:
-                    loss = loss.add(loss_of(model, im))
+                    if im is not None:
+                        loss = loss.add(loss_of(model, im))
                 loss.backward()
                 epoch_loss += loss.data
                 for p in model.parameters():
