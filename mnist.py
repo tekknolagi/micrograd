@@ -11,34 +11,24 @@ from rpython.rlib import rrandom
 random = rrandom.Random()
 
 
-@jit.unroll_safe
-def build_topo(topo, v):
-    if not v._visited:
-        v._visited = True
-        for child in v._prev:
-            build_topo(topo, child)
-        topo.append(v)
-
 class Value(object):
     """ stores a single scalar value and its gradient """
-    _immutable_fields_ = ['prev[*]']
+    _attrs_ = ['data', 'grad', '_visited']
+    _op = ''
 
-    def __init__(self, data, _children=[], _op=''):
+    def __init__(self, data):
         self.data = data
         self.grad = 0
-        # internal variables used for autograd graph construction
-        self._prev = _children
-        self._op = _op # the op that produced this node, for graphviz / debugging / etc
         self._visited = False
 
     def _backward(self): pass
 
     def add(self, other):
-        out = AddValue(self.data + other.data, [self, other], '+')
+        out = AddValue(self.data + other.data, self, other)
         return out
 
     def mul(self, other):
-        out = MulValue(self.data * other.data, [self, other], '*')
+        out = MulValue(self.data * other.data, self, other)
         return out
 
     def sub(self, other):
@@ -46,7 +36,7 @@ class Value(object):
 
     def pow(self, other):
         assert isinstance(other, (int, float)), "only supporting int/float powers for now"
-        out = PowValue(math.pow(self.data, other), [self], '**')
+        out = PowValue(math.pow(self.data, other), self)
         out.exponent = other
         return out
 
@@ -54,22 +44,34 @@ class Value(object):
         return self.mul(other.pow(-1))
 
     def relu(self):
-        out = ReluValue((self.data > 0) * self.data, [self], 'ReLU')
+        out = ReluValue((self.data > 0) * self.data, self)
         return out
 
     def log(self):
-        out = LogValue(math.log(self.data), [self], 'log')
+        out = LogValue(math.log(self.data), self)
         return out
 
     def exp(self):
-        out = ExpValue(math.exp(self.data), [self], 'exp')
+        out = ExpValue(math.exp(self.data), self)
         return out
 
     def topo(self):
         # topological order all of the children in the graph
         topo = []
-        build_topo(topo, self)
+        self._build_topo(topo)
         return topo
+
+    @jit.unroll_safe
+    def _build_topo(self, topo):
+        if not self._visited:
+            self._visited = True
+            topo.append(self)
+            self._build_topo_recurse(topo)
+
+    def _build_topo_recurse(self, topo):
+        pass
+    #    for child in self._prev:
+    #            child._build_topo(topo)
 
     @jit.unroll_safe
     def backward(self):
@@ -100,50 +102,75 @@ class Value(object):
     def __repr__(self):
         return "Value(data=%s, grad=%s)" % (self.data, self.grad)
 
+class UnaryValue(Value):
+    def __init__(self, data, prev0):
+        Value.__init__(self, data)
+        self._prev0 = prev0
 
-class AddValue(Value):
+    def _build_topo_recurse(self, topo):
+        self._prev0._build_topo(topo)
+
+
+class BinaryValue(Value):
+    def __init__(self, data, prev0, prev1):
+        Value.__init__(self, data)
+        self._prev0 = prev0
+        self._prev1 = prev1
+
+    def _build_topo_recurse(self, topo):
+        self._prev0._build_topo(topo)
+        self._prev1._build_topo(topo)
+
+
+class AddValue(BinaryValue):
+    _op = '+'
     def _backward(out):
-        self, other = out._prev
+        self, other = out._prev0, out._prev1
         self.grad += out.grad
         other.grad += out.grad
 
-class MulValue(Value):
+class MulValue(BinaryValue):
+    _op = '*'
     def _backward(out):
-        self, other = out._prev
+        self, other = out._prev0, out._prev1
         self.grad += other.data * out.grad
         other.grad += self.data * out.grad
 
-class PowValue(Value):
+class PowValue(UnaryValue):
+    _op = 'pow'
     def _backward(out):
-        self, = out._prev
-        #self.grad += (other * self.data**(other-1)) * out.grad
-        self.grad += (out.exponent * math.pow(self.data, out.exponent)) * out.grad
+        self = out._prev0
+        self.grad += (out.exponent * math.pow(self.data, out.exponent - 1)) * out.grad
 
-class ReluValue(Value):
+class ReluValue(UnaryValue):
+    _op = 'relu'
     def _backward(out):
-        self, = out._prev
+        self = out._prev0
         self.grad += (out.data > 0) * out.grad
 
 
-class LogValue(Value):
+class LogValue(UnaryValue):
+    _op = 'lop'
     def _backward(out):
-        self, = out._prev
+        self = out._prev0
         self.grad += 1/self.data * out.grad
 
-class ExpValue(Value):
+class ExpValue(UnaryValue):
+    _op = 'exp'
     def _backward(out):
-        self, = out._prev
+        self = out._prev0
         self.grad += math.exp(self.data) * out.grad
 
-class Max(Value):
+class Max(BinaryValue):
+    _op = 'max'
     def __init__(self, left, right):
         left_bigger = float(left.data > right.data)
         # bad branch-free way to write max :-(
         result = left_bigger * left.data + (1.0 - left_bigger) * right.data
-        Value.__init__(self, result, [left, right], 'max')
+        BinaryValue.__init__(self, result, left, right)
 
     def _backward(self):
-        left, right = self._prev
+        left, right = self._prev0, self._prev1
         left_bigger = float(left.data > right.data)
         left.grad += left_bigger * self.grad
         right.grad += (1.0 - left_bigger) * self.grad
@@ -164,8 +191,8 @@ class Neuron(object):
     _immutable_fields_ = ['w[*]', '_parameters[*]', 'b', 'nonlin']
 
     def __init__(self, nin, nonlin=True):
-        self.w = [Value(random.random(), [], 'weight') for _ in range(nin)]
-        self.b = Value(0, [], 'bias')
+        self.w = [Value(random.random()) for _ in range(nin)] # op=weight
+        self.b = Value(0) # op=bias
         self.nonlin = nonlin
         self._parameters = (self.w + [self.b])[:]
 
