@@ -366,20 +366,25 @@ def shuffle(x):
         x[i], x[j] = x[j], x[i]
 
 @jit.unroll_safe
-def loss_of(model, image):
-    output = model.evalmlp([Value(ord(x)) for x in image.pixels])
+def loss_of(model, inp_, expected_onehot):
+    output = model.evalmlp(inp_)
     softmax_output = stable_softmax(output)
-    expected_onehot = [0. for _ in range(NUM_DIGITS)]
-    expected_onehot[image.label] = 1.
     result = Value(0.0)
     for i in range(len(expected_onehot)):
         exp = expected_onehot[i]
         act = softmax_output[i]
-        result = result.add(act.add(Value(0.0001)).log().mul(Value(exp)))
+        result = result.add(act.add(Value(0.0001)).log().mul(exp))
     return result.mul(Value(-1))
 
 def make_main():
+    inp_ = [Value(0.) for _ in range(DIM)]
     model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
+    expected_onehot = [Value(0.) for _ in range(NUM_DIGITS)]
+    loss = loss_of(model, inp_, expected_onehot)
+    topo = loss.topo()
+    params = model.parameters()
+    non_params = [p for p in topo if p not in params]
+    reverse_topo = loss.topo()[::-1]
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
     driver = jit.JitDriver(greens=[], reds='auto')
 
@@ -391,6 +396,24 @@ def make_main():
             l = db[:num_training_images]
         shuffle(l)
         return grouper(batch_size, l)
+
+    def forward(image):
+        for e in expected_onehot:
+            e.data = 0.
+        expected_onehot[image.label].data = 1.
+        for inp, pix in zip(inp_, image.pixels):
+            # TODO(max): Should divide by 255
+            inp.data = ord(pix)
+        for node in topo:
+            node._forward()
+        return loss.data
+
+    def backward():
+        for node in non_params:
+            node.grad = 0.
+        loss.grad = 1.
+        for node in reverse_topo:
+            node._backward()
 
     def main(args):
         print("Training...")
@@ -426,14 +449,15 @@ def make_main():
             for batch_idx, batch in enumerate(batches):
                 driver.jit_merge_point()
                 print "   ", batch_idx, "of", len(batches)
-                model.zero_grad()
-                loss = Value(0.0)
+                # zero grad
+                for node in topo:
+                    node.grad = 0.
+                    node._visited = False
                 jit.promote(len(batch))
                 for im in batch:
                     if im is not None:
-                        loss = loss.add(loss_of(model, im))
-                loss.backward()
-                epoch_loss += loss.data
+                        epoch_loss += forward(im)
+                        backward()
                 for p in model.parameters():
                     p.data -= 0.1 * p.grad
             after = time.time()
