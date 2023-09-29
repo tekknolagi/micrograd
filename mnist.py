@@ -23,6 +23,8 @@ class Value(object):
 
     def _backward(self): pass
 
+    def _forward(self): pass
+
     def add(self, other):
         out = AddValue(self.data + other.data, self, other)
         return out
@@ -124,6 +126,8 @@ class BinaryValue(Value):
 
 class AddValue(BinaryValue):
     _op = '+'
+    def _forward(self):
+        self.data = self._prev0.data + self._prev1.data
     def _backward(out):
         self, other = out._prev0, out._prev1
         self.grad += out.grad
@@ -131,6 +135,8 @@ class AddValue(BinaryValue):
 
 class MulValue(BinaryValue):
     _op = '*'
+    def _forward(self):
+        self.data = self._prev0.data * self._prev1.data
     def _backward(out):
         self, other = out._prev0, out._prev1
         self.grad += other.data * out.grad
@@ -138,25 +144,33 @@ class MulValue(BinaryValue):
 
 class PowValue(UnaryValue):
     _op = 'pow'
+    def _forward(self):
+        self.data = math.pow(self._prev0.data, self.exponent)
     def _backward(out):
         self = out._prev0
         self.grad += (out.exponent * math.pow(self.data, out.exponent - 1)) * out.grad
 
 class ReluValue(UnaryValue):
     _op = 'relu'
+    def _forward(self):
+        self.data = (self._prev0.data > 0) * self._prev0.data
     def _backward(out):
         self = out._prev0
         self.grad += (out.data > 0) * out.grad
 
 
 class LogValue(UnaryValue):
-    _op = 'lop'
+    _op = 'log'
+    def _forward(self):
+        self.data = math.log(self._prev0.data)
     def _backward(out):
         self = out._prev0
         self.grad += 1/self.data * out.grad
 
 class ExpValue(UnaryValue):
     _op = 'exp'
+    def _forward(self):
+        self.data = math.exp(self._prev0.data)
     def _backward(out):
         self = out._prev0
         self.grad += math.exp(self.data) * out.grad
@@ -168,6 +182,12 @@ class Max(BinaryValue):
         # bad branch-free way to write max :-(
         result = left_bigger * left.data + (1.0 - left_bigger) * right.data
         BinaryValue.__init__(self, result, left, right)
+
+    def _forward(self):
+        # bad branch-free way to write max :-(
+        left, right = self._prev0, self._prev1
+        left_bigger = float(left.data > right.data)
+        self.data = left_bigger * left.data + (1.0 - left_bigger) * right.data
 
     def _backward(self):
         left, right = self._prev0, self._prev1
