@@ -23,6 +23,8 @@ class Value(object):
 
     def _backward(self): pass
 
+    def _forward(self): pass
+
     def add(self, other):
         out = AddValue(self.data + other.data, self, other)
         return out
@@ -124,6 +126,8 @@ class BinaryValue(Value):
 
 class AddValue(BinaryValue):
     _op = '+'
+    def _forward(self):
+        self.data = self._prev0.data + self._prev1.data
     def _backward(out):
         self, other = out._prev0, out._prev1
         self.grad += out.grad
@@ -131,6 +135,8 @@ class AddValue(BinaryValue):
 
 class MulValue(BinaryValue):
     _op = '*'
+    def _forward(self):
+        self.data = self._prev0.data * self._prev1.data
     def _backward(out):
         self, other = out._prev0, out._prev1
         self.grad += other.data * out.grad
@@ -138,25 +144,33 @@ class MulValue(BinaryValue):
 
 class PowValue(UnaryValue):
     _op = 'pow'
+    def _forward(self):
+        self.data = math.pow(self._prev0.data, self.exponent)
     def _backward(out):
         self = out._prev0
         self.grad += (out.exponent * math.pow(self.data, out.exponent - 1)) * out.grad
 
 class ReluValue(UnaryValue):
     _op = 'relu'
+    def _forward(self):
+        self.data = (self._prev0.data > 0) * self._prev0.data
     def _backward(out):
         self = out._prev0
         self.grad += (out.data > 0) * out.grad
 
 
 class LogValue(UnaryValue):
-    _op = 'lop'
+    _op = 'log'
+    def _forward(self):
+        self.data = math.log(self._prev0.data)
     def _backward(out):
         self = out._prev0
         self.grad += 1/self.data * out.grad
 
 class ExpValue(UnaryValue):
     _op = 'exp'
+    def _forward(self):
+        self.data = math.exp(self._prev0.data)
     def _backward(out):
         self = out._prev0
         self.grad += math.exp(self.data) * out.grad
@@ -168,6 +182,12 @@ class Max(BinaryValue):
         # bad branch-free way to write max :-(
         result = left_bigger * left.data + (1.0 - left_bigger) * right.data
         BinaryValue.__init__(self, result, left, right)
+
+    def _forward(self):
+        # bad branch-free way to write max :-(
+        left, right = self._prev0, self._prev1
+        left_bigger = float(left.data > right.data)
+        self.data = left_bigger * left.data + (1.0 - left_bigger) * right.data
 
     def _backward(self):
         left, right = self._prev0, self._prev1
@@ -366,20 +386,25 @@ def shuffle(x):
         x[i], x[j] = x[j], x[i]
 
 @jit.unroll_safe
-def loss_of(model, image):
-    output = model.evalmlp([Value(ord(x)) for x in image.pixels])
+def loss_of(model, inp_, expected_onehot):
+    output = model.evalmlp(inp_)
     softmax_output = stable_softmax(output)
-    expected_onehot = [0. for _ in range(NUM_DIGITS)]
-    expected_onehot[image.label] = 1.
     result = Value(0.0)
     for i in range(len(expected_onehot)):
         exp = expected_onehot[i]
         act = softmax_output[i]
-        result = result.add(act.add(Value(0.0001)).log().mul(Value(exp)))
+        result = result.add(act.add(Value(0.0001)).log().mul(exp))
     return result.mul(Value(-1))
 
 def make_main():
+    inp_ = [Value(0.) for _ in range(DIM)]
     model = timer(lambda: MLP(DIM, [50, NUM_DIGITS]), "Building model...")
+    expected_onehot = [Value(0.) for _ in range(NUM_DIGITS)]
+    loss = loss_of(model, inp_, expected_onehot)
+    topo = loss.topo()
+    params = model.parameters()
+    non_params = [p for p in topo if p not in params]
+    reverse_topo = loss.topo()[::-1]
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
     driver = jit.JitDriver(greens=[], reds='auto')
 
@@ -391,6 +416,24 @@ def make_main():
             l = db[:num_training_images]
         shuffle(l)
         return grouper(batch_size, l)
+
+    def forward(image):
+        for e in expected_onehot:
+            e.data = 0.
+        expected_onehot[image.label].data = 1.
+        for i in range(len(inp_)):
+            # TODO(max): Should divide by 255
+            inp_[i].data = ord(image.pixels[i])
+        for node in topo:
+            node._forward()
+        return loss.data
+
+    def backward():
+        for node in non_params:
+            node.grad = 0.
+        loss.grad = 1.
+        for node in reverse_topo:
+            node._backward()
 
     def main(args):
         print("Training...")
@@ -426,14 +469,15 @@ def make_main():
             for batch_idx, batch in enumerate(batches):
                 driver.jit_merge_point()
                 print "   ", batch_idx, "of", len(batches)
-                model.zero_grad()
-                loss = Value(0.0)
+                # zero grad
+                for node in topo:
+                    node.grad = 0.
+                    node._visited = False
                 jit.promote(len(batch))
                 for im in batch:
                     if im is not None:
-                        loss = loss.add(loss_of(model, im))
-                loss.backward()
-                epoch_loss += loss.data
+                        epoch_loss += forward(im)
+                        backward()
                 for p in model.parameters():
                     p.data -= 0.1 * p.grad
             after = time.time()
