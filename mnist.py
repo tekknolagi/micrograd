@@ -421,9 +421,9 @@ def make_main():
         for e in expected_onehot:
             e.data = 0.
         expected_onehot[image.label].data = 1.
-        for inp, pix in zip(inp_, image.pixels):
+        for i in range(len(inp_)):
             # TODO(max): Should divide by 255
-            inp.data = ord(pix)
+            inp_[i].data = ord(image.pixels[i])
         for node in topo:
             node._forward()
         return loss.data
