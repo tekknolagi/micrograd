@@ -403,7 +403,8 @@ def make_main():
     loss = loss_of(model, inp_, expected_onehot)
     topo = loss.topo()
     params = model.parameters()
-    non_params = [p for p in topo if p not in params]
+    params_set = {p: None for p in params}
+    non_params = [p for p in topo if p not in params_set]
     reverse_topo = loss.topo()[::-1]
     db = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
     driver = jit.JitDriver(greens=[], reds='auto')
