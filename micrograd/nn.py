@@ -19,7 +19,7 @@ class Neuron(Module):
 
     def __call__(self, x):
         assert len(self.w) == len(x), f"input of size {len(x)} with {len(self.w)} weights"
-        tct = Dot(self.w, x)+self.b
+        act = Dot(self.w, x)+self.b
         # act = sum(wi*xi for wi,xi in zip(self.w, x))+self.b
         return act.relu() if self.nonlin else act
 
