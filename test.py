@@ -372,6 +372,8 @@ spec = importlib.machinery.ModuleSpec("nn", None, origin=lib_file)
 nn = timer(lambda: _imp.create_dynamic(spec), "Loading extension...")
 print("Training...")
 num_epochs = 100
+# TODO(max): Bake images into training C program?
+# TODO(max): Have training program spit out C inference program with weights?
 traindb = list(images("train-images-idx3-ubyte", "train-labels-idx1-ubyte"))
 testdb = list(images("t10k-images-idx3-ubyte", "t10k-labels-idx1-ubyte"))
 def argmax(output):
