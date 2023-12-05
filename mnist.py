@@ -98,7 +98,6 @@ output = model(inp_)
 softmax_output = stable_softmax(output)
 loss = -sum(exp*(act+0.0001).log() for exp, act in zip(expected_onehot, softmax_output))
 topo = loss.topo()
-reverse_topo = reversed(topo)
 params = model.parameters()
 non_params = set(topo)-set(params)
 
@@ -132,7 +131,7 @@ def run():
                 for p in non_params:
                     p.grad = 0.
                 loss.grad = 1
-                for node in reverse_topo:
+                for node in reversed(topo):
                     node._backward()
                 batch_loss += loss.data
                 epoch_loss += loss.data
