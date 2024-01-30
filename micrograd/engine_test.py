@@ -1,8 +1,10 @@
 import unittest
 from micrograd.engine import Value, Dot
 
+
 def has_const(v, val):
     return v._op == '' and v.data == val
+
 
 def optimize_one(v):
     if v._op == '+':
