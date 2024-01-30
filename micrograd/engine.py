@@ -20,6 +20,9 @@ class Value:
             op = next
         return op
 
+    def args(self):
+        return tuple(v.find() for v in self._prev)
+
     def make_equal_to(self, other):
         self.find().set_forwarded(other)
 

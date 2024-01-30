@@ -1,6 +1,13 @@
 import unittest
 from micrograd.engine import Value
 
+def optimize(v):
+    if v._op == '+':
+        left, right = v.args()
+        if left._op == '' and right._op == '':
+            v.make_equal_to(Value(left.data+right.data))
+            return
+
 class Tests(unittest.TestCase):
     def test_const(self):
         x = Value(123)
@@ -27,6 +34,12 @@ class Tests(unittest.TestCase):
         self.assertIs(x.find(), y.find())
         y.make_equal_to(z)
         self.assertIs(x.find(), z.find())
+
+    def test_const_fold_plus(self):
+        x = Value(1)+2
+        self.assertEqual(x.find()._op, '+')
+        optimize(x)
+        self.assertEqual(x.find()._op, '')
 
 
 if __name__ == "__main__":
