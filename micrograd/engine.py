@@ -7,7 +7,7 @@ class Value:
         self.grad = 0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
-        self._prev = set(_children)
+        self._prev = tuple(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
     def __add__(self, other):
