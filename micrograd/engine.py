@@ -9,6 +9,25 @@ class Value:
         self._backward = lambda: None
         self._prev = tuple(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
+        self.forwarded = None
+
+    def find(self):
+        op = self
+        while isinstance(op, Value):
+            next = op.forwarded
+            if next is None:
+                return op
+            op = next
+        return op
+
+    def make_equal_to(self, other):
+        self.find().set_forwarded(other)
+
+    def set_forwarded(self, other):
+        if self._op == '':
+            assert self.data == other.data
+        else:
+            self.forwarded = other
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
