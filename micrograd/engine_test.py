@@ -37,7 +37,7 @@ def optimize(v):
     topo = v.find().topo()
     for op in reversed(topo):
         args = op.args()
-        if args and all(arg._op == '*' for arg in args):
+        if op._op == '+' and all(arg._op == '*' for arg in args):
             left_arr = tuple(arg._prev[0] for arg in args)
             right_arr = tuple(arg._prev[1] for arg in args)
             op.make_equal_to(Dot(left_arr, right_arr))
