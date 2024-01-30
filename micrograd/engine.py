@@ -122,3 +122,17 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"
+
+
+class Dot(Value):
+    def __init__(self, left, right):
+        super().__init__(0, (), 'dot')
+        self._left = left
+        self._right = right
+        self._prev = tuple(left+right)
+        global counter
+        self._id = counter
+        counter += 1
+
+    def __repr__(self):
+        return f"Dot(left={self._left}, right={self._right})"

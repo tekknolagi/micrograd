@@ -1,5 +1,5 @@
 import unittest
-from micrograd.engine import Value
+from micrograd.engine import Value, Dot
 
 def has_const(v, val):
     return v._op == '' and v.data == val
@@ -32,6 +32,17 @@ def optimize(v):
     topo = v.topo()
     for op in topo:
         optimize_one(op)
+    topo = v.find().topo()
+    for op in reversed(topo):
+        args = op.args()
+        if args and all(arg._op == '*' for arg in args):
+            left_arr = tuple(arg._prev[0] for arg in args)
+            right_arr = tuple(arg._prev[1] for arg in args)
+            op.make_equal_to(Dot(left_arr, right_arr))
+
+
+def dot(l, r):
+    return sum(li * ri for li, ri in zip(l, r))
 
 
 class Tests(unittest.TestCase):
@@ -105,6 +116,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(x.find()._op, '+')
         self.assertEqual(set(x.find().args()), set(l))
 
+    def test_dot(self):
+        l = [Value(0, (), 'var'), Value(0, (), 'var'), Value(0, (), 'var'),
+             Value(0, (), 'var'), Value(0, (), 'var'), Value(0, (), 'var')]
+        r = [Value(0, (), 'var'), Value(0, (), 'var'), Value(0, (), 'var'),
+             Value(0, (), 'var'), Value(0, (), 'var'), Value(0, (), 'var')]
+        x = dot(l, r)
+        optimize(x)
+        self.assertEqual(x.find()._op, 'dot')
+        for arg in x.find().args():
+            self.assertEqual(arg._op, 'var')
 
 
 if __name__ == "__main__":
