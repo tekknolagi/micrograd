@@ -12,6 +12,10 @@ def optimize_one(v):
             return
         if has_const(left, 0): v.make_equal_to(right); return
         if has_const(right, 0): v.make_equal_to(left); return
+        if left._op == '+':
+            v.make_equal_to(Value(0, (*left.args(), right), '+'))
+            return
+        # TODO(max): right +
 
     if v._op == '*':
         left, right = v.args()
@@ -93,6 +97,14 @@ class Tests(unittest.TestCase):
         optimize_one(x)
         self.assertEqual(x.find()._op, '')
         self.assertEqual(x.find().data, 2)
+
+    def test_sum(self):
+        l = [Value(0, (), 'var'), Value(0, (), 'var'), Value(0, (), 'var')]
+        x = sum(l)
+        optimize(x)
+        self.assertEqual(x.find()._op, '+')
+        self.assertEqual(set(x.find().args()), set(l))
+
 
 
 if __name__ == "__main__":
