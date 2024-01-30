@@ -1,3 +1,4 @@
+counter = 0
 
 class Value:
     """ stores a single scalar value and its gradient """
@@ -10,6 +11,9 @@ class Value:
         self._prev = tuple(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
         self.forwarded = None
+        global counter
+        self._id = counter
+        counter += 1
 
     def find(self):
         op = self
