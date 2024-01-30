@@ -1,17 +1,27 @@
 import unittest
 from micrograd.engine import Value
 
+def has_const(v, val):
+    return v._op == '' and v.data == val
+
 def optimize_one(v):
     if v._op == '+':
         left, right = v.args()
         if left._op == '' and right._op == '':
             v.make_equal_to(Value(left.data+right.data))
             return
+        if has_const(left, 0): v.make_equal_to(right); return
+        if has_const(right, 0): v.make_equal_to(left); return
+
     if v._op == '*':
         left, right = v.args()
         if left._op == '' and right._op == '':
-            v.make_equal_to(Value(left.data+right.data))
+            v.make_equal_to(Value(left.data*right.data))
             return
+        if has_const(left, 0): v.make_equal_to(left); return
+        if has_const(right, 0): v.make_equal_to(right); return
+        if has_const(left, 1): v.make_equal_to(right); return
+        if has_const(right, 1): v.make_equal_to(left); return
 
 
 def optimize(v):
@@ -62,6 +72,27 @@ class Tests(unittest.TestCase):
         optimize(x)
         self.assertEqual(x.find()._op, '')
         self.assertEqual(x.find().data, 10)
+
+    def test_fold_add_zero(self):
+        x = Value(1)+0
+        self.assertEqual(x.find()._op, '+')
+        optimize_one(x)
+        self.assertEqual(x.find()._op, '')
+        self.assertEqual(x.find().data, 1)
+
+    def test_fold_mul_zero(self):
+        x = Value(1)*0
+        self.assertEqual(x.find()._op, '*')
+        optimize_one(x)
+        self.assertEqual(x.find()._op, '')
+        self.assertEqual(x.find().data, 0)
+
+    def test_fold_mul_one(self):
+        x = Value(2)*1
+        self.assertEqual(x.find()._op, '*')
+        optimize_one(x)
+        self.assertEqual(x.find()._op, '')
+        self.assertEqual(x.find().data, 2)
 
 
 if __name__ == "__main__":
