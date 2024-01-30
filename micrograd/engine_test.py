@@ -90,6 +90,22 @@ class Tests(unittest.TestCase):
         self.assertEqual(x.find()._op, '')
         self.assertEqual(x.find().data, 10)
 
+    def test_const_fold_mul(self):
+        x = Value(2)*3
+        self.assertEqual(x.find()._op, '*')
+        optimize_one(x)
+        self.assertEqual(x.find()._op, '')
+        self.assertEqual(x.find().data, 6)
+
+    def test_const_fold_multiple_mul(self):
+        x = (Value(1)*2)*(Value(3)*4)
+        self.assertEqual(x.find()._op, '*')
+        optimize_one(x)
+        self.assertEqual(x.find()._op, '*')
+        optimize(x)
+        self.assertEqual(x.find()._op, '')
+        self.assertEqual(x.find().data, 24)
+
     def test_fold_add_zero(self):
         x = Value(1)+0
         self.assertEqual(x.find()._op, '+')
