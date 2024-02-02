@@ -127,12 +127,22 @@ class Value:
 class Dot(Value):
     def __init__(self, left, right):
         super().__init__(0, (), 'dot')
+        assert len(left) == len(right)
         self._left = left
         self._right = right
         self._prev = tuple(left+right)
         global counter
         self._id = counter
         counter += 1
+
+        # TODO(max): Figure out a way to compute this automatically using chain
+        # rule.
+        def _backward():
+            for i in range(len(self._left)):
+                self._left[i].grad += self._right[i].data*self.grad
+                self._right[i].grad += self._left[i].data*self.grad
+
+        self._backward = _backward
 
     def __repr__(self):
         return f"Dot(left={self._left}, right={self._right})"
