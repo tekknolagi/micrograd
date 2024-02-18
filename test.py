@@ -38,9 +38,8 @@ def optimize_one(v):
             return True
         if any(is_const(arg, 0) for arg in args):
             OPT_LOG["plus_zero"] += 1
-            v.make_equal_to(
-                Value(0, filter(lambda arg: not is_const(arg, 0), args), "+")
-            )
+            non_zero = tuple(filter(lambda arg: not is_const(arg, 0), args))
+            v.make_equal_to(Value(0, non_zero, "+"))
             return True
         if len(args) == 1:
             OPT_LOG["plus_single"] += 1
