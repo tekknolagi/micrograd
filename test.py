@@ -1,6 +1,6 @@
 import collections
 import functools
-from micrograd.engine import Value, Dot, Array
+from micrograd.engine import Value, next_id
 from micrograd.nn import MLP
 
 
@@ -47,6 +47,36 @@ def run_optimize_one(v):
     for op in topo:
         changed |= optimize_one(op.find())
     return changed
+
+
+class Array(Value):
+    def __init__(self, data):
+        super().__init__(0, data, "array")
+        self._id = next_id()
+
+    def __repr__(self):
+        return f"Array({self._prev})"
+
+
+class Dot(Value):
+    def __init__(self, left, right):
+        super().__init__(0, (left, right), "dot")
+        assert len(left._prev) == len(right._prev)
+        self._id = next_id()
+
+        # TODO(max): Figure out a way to compute this automatically using chain
+        # rule.
+        def _backward():
+            left = self._prev[0].find()
+            right = self._prev[1].find()
+            for i in range(left._prev):
+                left._prev[i].grad += right._prev[i].data * self.grad
+                right._prev[i].grad += left._prev[i].data * self.grad
+
+        self._backward = _backward
+
+    def __repr__(self):
+        return f"Dot(left={self._left}, right={self._right})"
 
 
 def optimize(v):

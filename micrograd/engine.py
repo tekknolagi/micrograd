@@ -1,5 +1,12 @@
 counter = 0
 
+
+def next_id():
+    global counter
+    counter += 1
+    return counter
+
+
 class Value:
     """ stores a single scalar value and its gradient """
 
@@ -11,9 +18,7 @@ class Value:
         self._prev = tuple(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
         self.forwarded = None
-        global counter
-        self._id = counter
-        counter += 1
+        self._id = next_id()
 
     def find(self):
         op = self
@@ -125,34 +130,3 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data}, grad={self.grad})"
-
-
-class Array(Value):
-    def __init__(self, data):
-        super().__init__(0, data, 'array')
-
-    def __repr__(self):
-        return f"Array({self._prev})"
-
-
-class Dot(Value):
-    def __init__(self, left, right):
-        super().__init__(0, (left, right), 'dot')
-        assert len(left._prev) == len(right._prev)
-        global counter
-        self._id = counter
-        counter += 1
-
-        # TODO(max): Figure out a way to compute this automatically using chain
-        # rule.
-        def _backward():
-            left = self._prev[0].find()
-            right = self._prev[1].find()
-            for i in range(left._prev):
-                left._prev[i].grad += right._prev[i].data*self.grad
-                right._prev[i].grad += left._prev[i].data*self.grad
-
-        self._backward = _backward
-
-    def __repr__(self):
-        return f"Dot(left={self._left}, right={self._right})"
