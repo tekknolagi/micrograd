@@ -4,19 +4,6 @@ from micrograd.engine import Value, Dot, Array
 from micrograd.nn import MLP
 
 
-def num_nodes(val):
-    todo = [val]
-    visited = set()
-    while todo:
-        v = todo.pop()
-        if v in visited:
-            continue
-        visited.add(v)
-        args = v.args()
-        todo.extend(args)
-    return len(visited)
-
-
 def is_const(v, val):
     return v._op == "" and v.data == val
 
@@ -131,18 +118,17 @@ net = MLP(dim_in, [50, 10])
 model = net([Value(i, (), "input") for i in range(dim_in)])
 loss = Array(model)
 # pretty(loss)
-start = num_nodes(loss.find())
 stderr = __import__("sys").stderr
-before = num_nodes(loss.find())
+before = len(loss.find().topo())
 changed = optimize(loss.find())
-after = num_nodes(loss.find())
+after = len(loss.find().topo())
 if changed:
     print(
         "before",
         before,
         "after",
         after,
-        f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)",
+        f"{(after-before)/before*100:.2f}%",
         file=stderr,
     )
     print(" ", OPT_LOG, file=stderr)
