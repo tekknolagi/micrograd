@@ -25,7 +25,7 @@ class Value:
         return op
 
     def args(self):
-        return tuple(v.find() for v in self._prev)
+        return [v.find() for v in self._prev]
 
     def arg(self, idx):
         return self._prev[idx].find()
