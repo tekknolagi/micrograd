@@ -150,6 +150,7 @@ loss = Array(model)
 # pretty(loss)
 stderr = __import__("sys").stderr
 before = len(loss.find().topo())
+print(" ", count(loss.find()))
 changed = optimize(loss.find())
 after = len(loss.find().topo())
 if changed:
