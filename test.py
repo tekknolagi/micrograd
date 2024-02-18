@@ -69,6 +69,13 @@ def pretty(v):
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
 
+def count(v):
+    c = collections.Counter()
+    for op in v.topo():
+        c[op._op] += 1
+    return c
+
+
 dim_in = 28*28
 net = MLP(dim_in, [50, 10])
 model = net([Value(0, (), 'input') for _ in range(dim_in)])
@@ -83,9 +90,6 @@ while changed:
     after = num_nodes(loss.find())
     if changed:
         print("before", before, "after", after, f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)")
+        print(" ", count(loss.find()))
     nrounds += 1
 # pretty(loss.find())
-c = collections.Counter()
-for op in loss.find().topo():
-    c[op._op] += 1
-print(c)
