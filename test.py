@@ -17,7 +17,7 @@ def num_nodes(val):
         visited.add(v)
         args = v.args()
         todo.extend(args)
-    return len(tuple(v for v in visited if v._op != ''))
+    return len(visited)
 
 
 def is_const(v, val):
