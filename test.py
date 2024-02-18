@@ -71,12 +71,19 @@ def optimize(v):
     for op in topo:
         changed |= optimize_one(op.find())
     topo = v.find().topo()
+
+    array_seen = {}
+    def hashcons_array(vs):
+        if vs not in array_seen:
+            array_seen[vs] = Array(vs)
+        return array_seen[vs]
+
     for op in reversed(topo):
         args = op.args()
         if op._op == '+' and any(arg._op == '*' for arg in args):
             mul_args = tuple(arg for arg in args if arg._op == '*')
-            mul_left = tuple(arg.arg(0) for arg in mul_args)
-            mul_right = tuple(arg.arg(1) for arg in mul_args)
+            mul_left = hashcons_array(tuple(arg.arg(0) for arg in mul_args))
+            mul_right = hashcons_array(tuple(arg.arg(1) for arg in mul_args))
             other_args = tuple(arg for arg in args if arg._op != '*')
             op.make_equal_to(Value(0, (Dot(mul_left, mul_right), *other_args), '+'))
             changed = True
@@ -95,8 +102,6 @@ def pretty(v):
             print(f"{fmt(op)} = input")
         elif op._op == '':
             print(f"{fmt(op)} = {op.data}")
-        elif op._op == 'dot':
-            print(f"{fmt(op)} = dot [{', '.join(fmt(c.find()) for c in op._left)}] [{', '.join(fmt(c.find()) for c in op._right)}]")
         else:
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
