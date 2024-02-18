@@ -20,6 +20,18 @@ def num_nodes(val):
     return len(tuple(v for v in visited if v._op != ''))
 
 
+def is_const(v, val):
+    return v._op == '' and v.data == val
+
+
+def is_nonzero(v):
+    return not is_const(v, 0)
+
+
+def is_zero(v):
+    return is_const(v, 0)
+
+
 def optimize_one(v):
     if v._op == '+':
         args = v.args()
@@ -31,6 +43,9 @@ def optimize_one(v):
                 else:
                     new_args.append(arg)
             v.make_equal_to(Value(0, tuple(new_args), '+'))
+            return True
+        if any(is_zero(arg) for arg in args):
+            v.make_equal_to(Value(0, filter(is_nonzero, args), '+'))
             return True
     return False
 
@@ -61,8 +76,10 @@ def fmt(v):
 def pretty(v):
     topo = v.topo()
     for op in topo:
-        if op._op == '':
+        if op._op == 'input':
             print(f"{fmt(op)} = input")
+        elif op._op == '':
+            print(f"{fmt(op)} = {op.data}")
         elif op._op == 'dot':
             print(f"{fmt(op)} = dot [{', '.join(fmt(c.find()) for c in op._left)}] [{', '.join(fmt(c.find()) for c in op._right)}]")
         else:
