@@ -17,7 +17,7 @@ def num_nodes(val):
         visited.add(v)
         args = v.args()
         todo.extend(args)
-    return len(visited)
+    return len(tuple(v for v in visited if v._op != ''))
 
 
 def optimize_one(v):
