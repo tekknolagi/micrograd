@@ -85,7 +85,7 @@ class Value:
         def build_topo(v):
             if v not in visited:
                 visited.add(v)
-                for child in v._prev:
+                for child in v.args():
                     build_topo(child)
                 topo.append(v)
         build_topo(self)
