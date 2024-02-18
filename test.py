@@ -1,6 +1,6 @@
 import collections
 import sys
-from micrograd.engine import Value, Dot
+from micrograd.engine import Value, Dot, Array
 from micrograd.nn import MLP
 
 
@@ -115,7 +115,7 @@ def count(v):
 dim_in = 28*28
 net = MLP(dim_in, [50, 10])
 model = net([Value(0, (), 'input') for _ in range(dim_in)])
-loss = sum(model)
+loss = Array(model)
 # pretty(loss)
 changed = True
 nrounds = 0

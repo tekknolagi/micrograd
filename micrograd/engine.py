@@ -149,3 +149,11 @@ class Dot(Value):
 
     def __repr__(self):
         return f"Dot(left={self._left}, right={self._right})"
+
+
+class Array(Value):
+    def __init__(self, data):
+        super().__init__(0, data, 'array')
+
+    def __repr__(self):
+        return f"Array({self._prev})"
