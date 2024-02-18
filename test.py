@@ -78,6 +78,8 @@ def optimize(v):
 
 
 def fmt(v):
+    if v._op == '':
+        return str(v.data)
     return f"v{v._id}"
 
 
@@ -87,7 +89,7 @@ def pretty(v):
         if op._op == 'input':
             print(f"{fmt(op)} = input")
         elif op._op == '':
-            print(f"{fmt(op)} = {op.data}")
+            pass
         else:
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
@@ -99,22 +101,44 @@ def count(v):
     return c
 
 
+def compile(v):
+    for op in v.topo():
+        if op._op == 'dot':
+            n = len(op._prev[0]._prev)
+            args = op.args()
+            print(f"double {fmt(op)} = dot{n}({fmt(args[0])}, {fmt(args[1])});")
+        elif op._op == 'array':
+            n = len(op._prev)
+            print(f"double {fmt(op)}[{n}] = {{ {', '.join(fmt(v) for v in op.args())} }};")
+        elif op._op == '':
+            pass
+        elif op._op == 'input':
+            print(f"double {fmt(op)} = in[{op.data}];")
+        elif op._op == 'ReLU':
+            arg = fmt(op.arg(0))
+            print(f"double {fmt(op)} = {arg} > 0 ? {arg} : 0;")
+        else:
+            raise RuntimeError(f"unexpected op {op._op!r}")
+
+
 dim_in = 28*28
 net = MLP(dim_in, [50, 10])
-model = net([Value(0, (), 'input') for _ in range(dim_in)])
+model = net([Value(i, (), 'input') for i in range(dim_in)])
 loss = Array(model)
 # pretty(loss)
 changed = True
 nrounds = 0
 start = num_nodes(loss.find())
+stderr = __import__('sys').stderr
 while changed:
     before = num_nodes(loss.find())
     changed = optimize(loss.find())
     after = num_nodes(loss.find())
     if changed:
-        print("before", before, "after", after, f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)")
-        print(" ", OPT_LOG)
-        print(" ", count(loss.find()))
+        print("before", before, "after", after, f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)", file=stderr)
+        print(" ", OPT_LOG, file=stderr)
+        print(" ", count(loss.find()), file=stderr)
     OPT_LOG.clear()
     nrounds += 1
 # pretty(loss.find())
+# compile(loss.find())
