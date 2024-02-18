@@ -32,10 +32,14 @@ def is_zero(v):
     return is_const(v, 0)
 
 
+OPT_LOG = collections.Counter()
+
+
 def optimize_one(v):
     if v._op == '+':
         args = v.args()
         if any(arg._op == '+' for arg in args):
+            OPT_LOG['flatten_plus'] += 1
             new_args = []
             for arg in args:
                 if arg._op == '+':
@@ -45,7 +49,22 @@ def optimize_one(v):
             v.make_equal_to(Value(0, tuple(new_args), '+'))
             return True
         if any(is_zero(arg) for arg in args):
+            OPT_LOG['plus_zero'] += 1
             v.make_equal_to(Value(0, filter(is_nonzero, args), '+'))
+            return True
+        if len(args) == 1:
+            OPT_LOG['plus_single'] += 1
+            v.make_equal_to(args[0])
+            return True
+    if v._op == '*':
+        args = v.args()
+        if any(is_zero(arg) for arg in args):
+            OPT_LOG['mul_zero'] += 1
+            v.make_equal_to(Value(0))
+            return True
+        if any(is_const(arg, 1) for arg in args):
+            OPT_LOG['mul_one'] += 1
+            v.make_equal_to(Value(0, filter(lambda arg: not is_const(arg, 1), args), '*'))
             return True
     return False
 
@@ -107,6 +126,8 @@ while changed:
     after = num_nodes(loss.find())
     if changed:
         print("before", before, "after", after, f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)")
+        print(" ", OPT_LOG)
         print(" ", count(loss.find()))
+    OPT_LOG.clear()
     nrounds += 1
 # pretty(loss.find())
