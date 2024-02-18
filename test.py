@@ -71,6 +71,8 @@ def pretty(v):
     for op in topo:
         if op._op == '':
             print(f"{fmt(op)} = input")
+        elif op._op == 'dot':
+            print(f"{fmt(op)} = dot [{', '.join(fmt(c.find()) for c in op._left)}] [{', '.join(fmt(c.find()) for c in op._right)}]")
         else:
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
