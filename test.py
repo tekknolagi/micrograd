@@ -1,10 +1,6 @@
 import collections
-import sys
 from micrograd.engine import Value, Dot, Array
 from micrograd.nn import MLP
-
-
-sys.setrecursionlimit(100_000)
 
 
 def num_nodes(val):
