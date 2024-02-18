@@ -8,8 +8,16 @@ sys.setrecursionlimit(100_000)
 
 
 def num_nodes(val):
-    args = val.args()
-    return 1 + sum(num_nodes(child) for child in args)
+    todo = [val]
+    visited = set()
+    while todo:
+        v = todo.pop()
+        if v in visited:
+            continue
+        visited.add(v)
+        args = v.args()
+        todo.extend(args)
+    return len(visited)
 
 
 def optimize_one(v):
