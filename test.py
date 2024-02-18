@@ -87,5 +87,6 @@ while changed:
 # pretty(loss.find())
 c = collections.Counter()
 for op in loss.find().topo():
-    c[op._op] += 1
+    if op._op != '':
+        c[op._op] += 1
 print(c)
