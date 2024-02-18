@@ -139,8 +139,6 @@ class Dot(Value):
     def __init__(self, left, right):
         super().__init__(0, (left, right), 'dot')
         assert len(left._prev) == len(right._prev)
-        self._left = left
-        self._right = right
         global counter
         self._id = counter
         counter += 1
@@ -148,9 +146,11 @@ class Dot(Value):
         # TODO(max): Figure out a way to compute this automatically using chain
         # rule.
         def _backward():
-            for i in range(len(self._left)):
-                self._left[i].grad += self._right[i].data*self.grad
-                self._right[i].grad += self._left[i].data*self.grad
+            left = self._prev[0].find()
+            right = self._prev[1].find()
+            for i in range(left._prev):
+                left._prev[i].grad += right._prev[i].data*self.grad
+                right._prev[i].grad += left._prev[i].data*self.grad
 
         self._backward = _backward
 
