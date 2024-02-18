@@ -64,6 +64,7 @@ def optimize(v):
         args = op.args()
         if op._op == "+" and any(arg._op == "*" for arg in args):
             mul_args = tuple(arg for arg in args if arg._op == "*")
+            assert all(len(arg._prev) == 2 for arg in mul_args)
             mul_left = hashcons_array(tuple(arg.arg(0) for arg in mul_args))
             mul_right = hashcons_array(tuple(arg.arg(1) for arg in mul_args))
             other_args = tuple(arg for arg in args if arg._op != "*")
