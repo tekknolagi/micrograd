@@ -71,7 +71,7 @@ def pretty(v):
 
 dim_in = 28*28
 net = MLP(dim_in, [50, 10])
-model = net([0]*dim_in)
+model = net([Value(0, (), 'input') for _ in range(dim_in)])
 loss = sum(model)
 # pretty(loss)
 changed = True
@@ -87,6 +87,5 @@ while changed:
 # pretty(loss.find())
 c = collections.Counter()
 for op in loss.find().topo():
-    if op._op != '':
-        c[op._op] += 1
+    c[op._op] += 1
 print(c)
