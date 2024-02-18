@@ -24,10 +24,6 @@ def is_const(v, val):
     return v._op == '' and v.data == val
 
 
-def is_nonzero(v):
-    return not is_const(v, 0)
-
-
 def is_zero(v):
     return is_const(v, 0)
 
@@ -50,7 +46,7 @@ def optimize_one(v):
             return True
         if any(is_zero(arg) for arg in args):
             OPT_LOG['plus_zero'] += 1
-            v.make_equal_to(Value(0, filter(is_nonzero, args), '+'))
+            v.make_equal_to(Value(0, filter(lambda arg: not is_const(arg, 0), args), '+'))
             return True
         if len(args) == 1:
             OPT_LOG['plus_single'] += 1
