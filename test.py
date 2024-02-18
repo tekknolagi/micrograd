@@ -22,24 +22,16 @@ def num_nodes(val):
 
 def optimize_one(v):
     if v._op == '+':
-        args = []
-        found = False
-        for arg in v.args():
-            if arg._op == '+':
-                args += arg.args()
-                found = True
-            else:
-                args.append(arg)
-        if found:
-            v.make_equal_to(Value(0, tuple(args), '+'))
+        args = v.args()
+        if any(arg._op == '+' for arg in args):
+            new_args = []
+            for arg in args:
+                if arg._op == '+':
+                    new_args.extend(arg.args())
+                else:
+                    new_args.append(arg)
+            v.make_equal_to(Value(0, tuple(new_args), '+'))
             return True
-        # left, *right = v.args()
-        # if left._op == '+':
-        #     v.make_equal_to(Value(0, (*left.args(), *right), '+'))
-        #     return True
-        # if right._op == '+':
-        #     v.make_equal_to(Value(0, (left, *right.args()), '+'))
-        #     return True
     return False
 
 
