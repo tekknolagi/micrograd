@@ -43,22 +43,14 @@ def optimize(v):
     topo = v.find().topo()
     for op in reversed(topo):
         args = op.args()
-        if op._op == '+' and all(arg._op == '*' for arg in args):
-            assert all(len(arg._prev)==2 for arg in args)
-            left_arr = tuple(arg._prev[0] for arg in args)
-            right_arr = tuple(arg._prev[1] for arg in args)
-            op.make_equal_to(Dot(left_arr, right_arr))
+        if op._op == '+' and any(arg._op == '*' for arg in args):
+            mul_args = tuple(arg for arg in args if arg._op == '*')
+            mul_left = tuple(arg.arg(0) for arg in mul_args)
+            mul_right = tuple(arg.arg(1) for arg in mul_args)
+            other_args = tuple(arg for arg in args if arg._op != '*')
+            op.make_equal_to(Value(0, (Dot(mul_left, mul_right), *other_args), '+'))
             changed = True
             continue
-        # if op._op == '+':
-        #     mul_args = tuple(arg for arg in args if arg._op == '*')
-        #     other_args = tuple(arg for arg in args if arg._op != '*')
-        #     op.make_equal_to(
-        elif op._op == '+' and all(arg._op == '*' for arg in args[1:]):
-            left_arr = tuple(arg._prev[0] for arg in args[1:])
-            right_arr = tuple(arg._prev[1] for arg in args[1:])
-            op.make_equal_to(Value(0, (args[0], Dot(left_arr, right_arr)), '+'))
-            changed = True
     return changed
 
 

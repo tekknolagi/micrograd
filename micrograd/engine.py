@@ -27,6 +27,9 @@ class Value:
     def args(self):
         return tuple(v.find() for v in self._prev)
 
+    def arg(self, idx):
+        return self._prev[idx].find()
+
     def make_equal_to(self, other):
         self.find().set_forwarded(other)
 
