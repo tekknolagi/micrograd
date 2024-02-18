@@ -48,16 +48,6 @@ def optimize_one(v):
             OPT_LOG['plus_single'] += 1
             v.make_equal_to(args[0])
             return True
-    if v._op == '*':
-        args = v.args()
-        if any(is_zero(arg) for arg in args):
-            OPT_LOG['mul_zero'] += 1
-            v.make_equal_to(Value(0))
-            return True
-        if any(is_const(arg, 1) for arg in args):
-            OPT_LOG['mul_one'] += 1
-            v.make_equal_to(Value(0, filter(lambda arg: not is_const(arg, 1), args), '*'))
-            return True
     return False
 
 
