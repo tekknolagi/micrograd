@@ -83,7 +83,7 @@ def optimize(v):
     while changed := run_optimize_one(v):
         pass
     topo = v.find().topo()
-    for op in reversed(topo):
+    for op in topo:
         args = op.args()
         if op._op == "+" and any(arg._op == "*" for arg in args):
             mul_args = tuple(arg for arg in args if arg._op == "*")
