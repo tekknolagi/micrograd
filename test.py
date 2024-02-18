@@ -54,11 +54,17 @@ def hashcons_array(vs):
     return Array(vs)
 
 
-def optimize(v):
+def run_optimize_one(v):
     topo = v.topo()
     changed = False
     for op in topo:
         changed |= optimize_one(op.find())
+    return changed
+
+
+def optimize(v):
+    while changed := run_optimize_one(v):
+        pass
     topo = v.find().topo()
     for op in reversed(topo):
         args = op.args()
@@ -125,26 +131,21 @@ net = MLP(dim_in, [50, 10])
 model = net([Value(i, (), "input") for i in range(dim_in)])
 loss = Array(model)
 # pretty(loss)
-changed = True
-nrounds = 0
 start = num_nodes(loss.find())
 stderr = __import__("sys").stderr
-while changed:
-    before = num_nodes(loss.find())
-    changed = optimize(loss.find())
-    after = num_nodes(loss.find())
-    if changed:
-        print(
-            "before",
-            before,
-            "after",
-            after,
-            f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)",
-            file=stderr,
-        )
-        print(" ", OPT_LOG, file=stderr)
-        print(" ", count(loss.find()), file=stderr)
-    OPT_LOG.clear()
-    nrounds += 1
+before = num_nodes(loss.find())
+changed = optimize(loss.find())
+after = num_nodes(loss.find())
+if changed:
+    print(
+        "before",
+        before,
+        "after",
+        after,
+        f"{(after-before)/before*100:.2f}% (cum {(after-start)/start*100:.2f}%)",
+        file=stderr,
+    )
+    print(" ", OPT_LOG, file=stderr)
+    print(" ", count(loss.find()), file=stderr)
 # pretty(loss.find())
 # compile(loss.find())
