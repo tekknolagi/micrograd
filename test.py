@@ -1,4 +1,5 @@
 import collections
+import functools
 from micrograd.engine import Value, Dot, Array
 from micrograd.nn import MLP
 
@@ -48,20 +49,17 @@ def optimize_one(v):
     return False
 
 
+@functools.lru_cache(maxsize=None)
+def hashcons_array(vs):
+    return Array(vs)
+
+
 def optimize(v):
     topo = v.topo()
     changed = False
     for op in topo:
         changed |= optimize_one(op.find())
     topo = v.find().topo()
-
-    array_seen = {}
-
-    def hashcons_array(vs):
-        if vs not in array_seen:
-            array_seen[vs] = Array(vs)
-        return array_seen[vs]
-
     for op in reversed(topo):
         args = op.args()
         if op._op == "+" and any(arg._op == "*" for arg in args):
