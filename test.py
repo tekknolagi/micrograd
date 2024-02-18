@@ -20,10 +20,6 @@ def is_const(v, val):
     return v._op == '' and v.data == val
 
 
-def is_zero(v):
-    return is_const(v, 0)
-
-
 OPT_LOG = collections.Counter()
 
 
@@ -40,7 +36,7 @@ def optimize_one(v):
                     new_args.append(arg)
             v.make_equal_to(Value(0, tuple(new_args), '+'))
             return True
-        if any(is_zero(arg) for arg in args):
+        if any(is_const(arg, 0) for arg in args):
             OPT_LOG['plus_zero'] += 1
             v.make_equal_to(Value(0, filter(lambda arg: not is_const(arg, 0), args), '+'))
             return True
