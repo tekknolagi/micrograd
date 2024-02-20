@@ -89,8 +89,6 @@ def optimize(v):
 
 
 def fmt(v):
-    if v._op == "":
-        return str(v.data)
     return f"v{v._id}"
 
 
@@ -100,7 +98,7 @@ def pretty(v):
         if op._op == "input":
             print(f"{fmt(op)} = input")
         elif op._op == "":
-            pass
+            print(f"{fmt(op)} = {op.data}")
         else:
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
@@ -118,13 +116,15 @@ def compile(v):
             n = len(op._prev[0]._prev)
             args = op.args()
             print(f"double {fmt(op)} = dot{n}({fmt(args[0])}, {fmt(args[1])});")
+        elif op._op == "+":
+            print(f"double {fmt(op)} = {' + '.join(fmt(v) for v in op.args())};")
         elif op._op == "array":
             n = len(op._prev)
             print(
                 f"double {fmt(op)}[{n}] = {{ {', '.join(fmt(v) for v in op.args())} }};"
             )
         elif op._op == "":
-            pass
+            print(f"double {fmt(op)} = {op.data};")
         elif op._op == "input":
             print(f"double {fmt(op)} = in[{op.data}];")
         elif op._op == "ReLU":
