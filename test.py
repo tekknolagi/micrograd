@@ -136,7 +136,8 @@ def compile(v):
 
 dim_in = 28 * 28
 net = MLP(dim_in, [50, 10])
-model = net([Value(i, (), "input") for i in range(dim_in)])
+image = Array([Value(i, (), "input") for i in range(dim_in)])
+model = net(image._prev)
 loss = Array(model)
 # pretty(loss)
 stderr = __import__("sys").stderr
