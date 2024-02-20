@@ -4,10 +4,6 @@ from micrograd.engine import Value, next_id
 from micrograd.nn import MLP
 
 
-def is_const(v, val):
-    return v._op == "" and v.data == val
-
-
 OPT_LOG = collections.Counter()
 
 
@@ -23,11 +19,6 @@ def optimize_one(v):
                 else:
                     new_args.append(arg)
             v.make_equal_to(Value(0, tuple(new_args), "+"))
-            return True
-        if any(is_const(arg, 0) for arg in args):
-            OPT_LOG["plus_zero"] += 1
-            non_zero = tuple(filter(lambda arg: not is_const(arg, 0), args))
-            v.make_equal_to(Value(0, non_zero, "+"))
             return True
         if len(args) == 1:
             OPT_LOG["plus_single"] += 1
