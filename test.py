@@ -136,9 +136,10 @@ def compile(v):
 
 dim_in = 28 * 28
 net = MLP(dim_in, [50, 10])
-image = Array([Value(i, (), "input") for i in range(dim_in)])
+inp = hashcons_array(tuple(Value(i, (), "input") for i in range(dim_in)))
+image = hashcons_array(inp._prev)
 model = net(image._prev)
-loss = Array(model)
+loss = hashcons_array(tuple(model))
 # pretty(loss)
 stderr = __import__("sys").stderr
 before = len(loss.find().topo())
