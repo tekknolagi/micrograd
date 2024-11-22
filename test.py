@@ -123,52 +123,6 @@ def count(v):
     return c
 
 
-def gen_dot(n):
-    return f"""double dot{n}(double left[{n}], double right[{n}]) {{
-    double result = 0;
-    for (int i = 0; i < {n}; i++) {{
-        result += left[i] * right[i];
-    }}
-    return result;
-}}"""
-
-
-def compile(v):
-    dims = set()
-    result = []
-    for op in v.topo():
-        if op._op == "dot":
-            n = len(op._prev[0]._prev)
-            dims.add(n)
-            args = op.args()
-            result.append(f"double {fmt(op)} = dot{n}({fmt(args[0])}, {fmt(args[1])});")
-        elif op._op == "+":
-            result.append(f"double {fmt(op)} = {' + '.join(fmt(v) for v in op.args())};")
-        elif op._op == "array":
-            name = fmt(op)
-            n = len(op._prev)
-            if all(o._op == "" for o in op._prev):
-                result.append(
-                    f"double {name}[{n}];\nrandinit({name}, {n});"
-                )
-            else:
-                result.append(
-                    f"double {name}[{n}] = {{ {', '.join(fmt(v) for v in op.args())} }};"
-                )
-        elif op._op == "":
-            pass
-            # result.append(f"double {fmt(op)} = {op.data};")
-        elif op._op == "input":
-            pass
-            # result.append(f"double {fmt(op)} = in[{op.data}];")
-        elif op._op == "ReLU":
-            arg = fmt(op.arg(0))
-            result.append(f"double {fmt(op)} = {arg} > 0 ? {arg} : 0;")
-        else:
-            raise RuntimeError(f"unexpected op {op._op!r}")
-    return "\n".join(gen_dot(n) for n in sorted(dims)) + "\n" + "\n".join(result)
-
-
 dim_in = 28 * 28
 net = MLP(dim_in, [50, 10])
 inp = hashcons_array(tuple(Value(i, (), "input") for i in range(dim_in)))
@@ -195,4 +149,3 @@ if changed:
 # pretty(inp.find())
 # print("----")
 # pretty(loss.find())
-# x = compile(loss.find())
