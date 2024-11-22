@@ -70,15 +70,6 @@ class Dot(Value):
         return f"Dot(left={self._left}, right={self._right})"
 
 
-class Matrix(Value):
-    def __init__(self, data):
-        super().__init__(0, data, "matrix")
-        self._id = next_id()
-
-    def __repr__(self):
-        return f"Matrix({self._prev})"
-
-
 def optimize(v):
     while changed := run_optimize_one(v):
         pass
