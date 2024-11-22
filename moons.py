@@ -51,15 +51,23 @@ def loss(batch_size=None):
 
 total_loss, acc = loss()
 print(total_loss, acc)
+loss_topo = total_loss.topo()
 
 # optimization
-for k in range(10):
+for k in range(100):
     
     # forward
-    total_loss, acc = loss()
+    for op in loss_topo:
+        op._forward()
+
+    # TODO(max): Figure out how to cheaply compute accuracy without redoing
+    # some of the topo for loss too
+    acc = 0
     
     # backward
-    model.zero_grad()
+    for op in loss_topo:
+        op.grad = 0
+    # model.zero_grad()
     total_loss.backward()
     
     # update (sgd)
