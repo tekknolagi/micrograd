@@ -70,6 +70,15 @@ class Dot(Value):
         return f"Dot(left={self._left}, right={self._right})"
 
 
+class Matrix(Value):
+    def __init__(self, data):
+        super().__init__(0, data, "matrix")
+        self._id = next_id()
+
+    def __repr__(self):
+        return f"Matrix({self._prev})"
+
+
 def optimize(v):
     while changed := run_optimize_one(v):
         pass
@@ -89,6 +98,8 @@ def optimize(v):
 
 
 def fmt(v):
+    if v._op == "":
+        return str(v.data)
     return f"v{v._id}"
 
 
@@ -96,9 +107,11 @@ def pretty(v):
     topo = v.topo()
     for op in topo:
         if op._op == "input":
-            print(f"{fmt(op)} = input")
+            pass
+            # print(f"{fmt(op)} = input")
         elif op._op == "":
-            print(f"{fmt(op)} = {op.data}")
+            pass
+            # print(f"{fmt(op)} = {op.data}")
         else:
             print(f"{fmt(op)} = {op._op} {' '.join(fmt(c) for c in op.args())}")
 
@@ -110,28 +123,50 @@ def count(v):
     return c
 
 
+def gen_dot(n):
+    return f"""double dot{n}(double left[{n}], double right[{n}]) {{
+    double result = 0;
+    for (int i = 0; i < {n}; i++) {{
+        result += left[i] * right[i];
+    }}
+    return result;
+}}"""
+
+
 def compile(v):
+    dims = set()
+    result = []
     for op in v.topo():
         if op._op == "dot":
             n = len(op._prev[0]._prev)
+            dims.add(n)
             args = op.args()
-            print(f"double {fmt(op)} = dot{n}({fmt(args[0])}, {fmt(args[1])});")
+            result.append(f"double {fmt(op)} = dot{n}({fmt(args[0])}, {fmt(args[1])});")
         elif op._op == "+":
-            print(f"double {fmt(op)} = {' + '.join(fmt(v) for v in op.args())};")
+            result.append(f"double {fmt(op)} = {' + '.join(fmt(v) for v in op.args())};")
         elif op._op == "array":
+            name = fmt(op)
             n = len(op._prev)
-            print(
-                f"double {fmt(op)}[{n}] = {{ {', '.join(fmt(v) for v in op.args())} }};"
-            )
+            if all(o._op == "" for o in op._prev):
+                result.append(
+                    f"double {name}[{n}];\nrandinit({name}, {n});"
+                )
+            else:
+                result.append(
+                    f"double {name}[{n}] = {{ {', '.join(fmt(v) for v in op.args())} }};"
+                )
         elif op._op == "":
-            print(f"double {fmt(op)} = {op.data};")
+            pass
+            # result.append(f"double {fmt(op)} = {op.data};")
         elif op._op == "input":
-            print(f"double {fmt(op)} = in[{op.data}];")
+            pass
+            # result.append(f"double {fmt(op)} = in[{op.data}];")
         elif op._op == "ReLU":
             arg = fmt(op.arg(0))
-            print(f"double {fmt(op)} = {arg} > 0 ? {arg} : 0;")
+            result.append(f"double {fmt(op)} = {arg} > 0 ? {arg} : 0;")
         else:
             raise RuntimeError(f"unexpected op {op._op!r}")
+    return "\n".join(gen_dot(n) for n in sorted(dims)) + "\n" + "\n".join(result)
 
 
 dim_in = 28 * 28
@@ -143,7 +178,7 @@ loss = hashcons_array(tuple(model))
 # pretty(loss)
 stderr = __import__("sys").stderr
 before = len(loss.find().topo())
-print(" ", count(loss.find()))
+print(" ", count(loss.find()), file=stderr)
 changed = optimize(loss.find())
 after = len(loss.find().topo())
 if changed:
@@ -157,5 +192,7 @@ if changed:
     )
     print(" ", OPT_LOG, file=stderr)
     print(" ", count(loss.find()), file=stderr)
+# pretty(inp.find())
+# print("----")
 # pretty(loss.find())
-# compile(loss.find())
+# x = compile(loss.find())
