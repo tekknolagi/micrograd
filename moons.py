@@ -46,11 +46,9 @@ def loss(batch_size=None):
     total_loss = data_loss + reg_loss
     
     # also get accuracy
-    accuracy = [(yi > 0) == (scorei.data > 0) for yi, scorei in zip(yb, scores)]
-    return total_loss, sum(accuracy) / len(accuracy)
+    return total_loss, yb, scores
 
-total_loss, acc = loss()
-print(total_loss, acc)
+total_loss, yb, scores = loss()
 total_loss_topo = total_loss.topo()
 total_loss_backward_topo = total_loss_topo[::-1]
 
@@ -62,7 +60,8 @@ for k in range(100):
         v._forward()
         # zero grad
         v.grad = 0
-    acc = 0
+    accuracy = [(yi > 0) == (scorei.data > 0) for yi, scorei in zip(yb, scores)]
+    acc = sum(accuracy) / len(accuracy)
 
     # backward
     total_loss.backward(total_loss_backward_topo)
