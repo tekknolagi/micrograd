@@ -77,7 +77,9 @@ class Value:
         build_topo(self)
         return topo
 
-    def backward(self, reverse_topo):
+    def backward(self, reverse_topo=None):
+        if reverse_topo is None:
+            reverse_topo = self.topo()[::-1]
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
         for v in reverse_topo:
