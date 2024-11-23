@@ -51,16 +51,21 @@ def loss(batch_size=None):
 
 total_loss, acc = loss()
 print(total_loss, acc)
+total_loss_topo = total_loss.topo()
+total_loss_backward_topo = total_loss_topo[::-1]
 
 # optimization
-for k in range(10):
+for k in range(100):
     
     # forward
-    total_loss, acc = loss()
-    
+    for v in total_loss_topo:
+        v._forward()
+        # zero grad
+        v.grad = 0
+    acc = 0
+
     # backward
-    model.zero_grad()
-    total_loss.backward()
+    total_loss.backward(total_loss_backward_topo)
     
     # update (sgd)
     learning_rate = 1.0 - 0.9*k/100

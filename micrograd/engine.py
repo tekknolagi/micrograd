@@ -7,6 +7,7 @@ class Value:
         self.grad = 0
         # internal variables used for autograd graph construction
         self._backward = lambda: None
+        self._forward = lambda: None
         self._prev = set(_children)
         self._op = _op # the op that produced this node, for graphviz / debugging / etc
 
@@ -18,6 +19,9 @@ class Value:
             self.grad += out.grad
             other.grad += out.grad
         out._backward = _backward
+        def _forward():
+            out.data = self.data + other.data
+        out._forward = _forward
 
         return out
 
@@ -29,6 +33,9 @@ class Value:
             self.grad += other.data * out.grad
             other.grad += self.data * out.grad
         out._backward = _backward
+        def _forward():
+            out.data = self.data * other.data
+        out._forward = _forward
 
         return out
 
@@ -39,6 +46,9 @@ class Value:
         def _backward():
             self.grad += (other * self.data**(other-1)) * out.grad
         out._backward = _backward
+        def _forward():
+            out.data = self.data**other
+        out._forward = _forward
 
         return out
 
@@ -48,11 +58,13 @@ class Value:
         def _backward():
             self.grad += (out.data > 0) * out.grad
         out._backward = _backward
+        def _forward():
+            out.data = 0 if self.data < 0 else self.data
+        out._forward = _forward
 
         return out
 
-    def backward(self):
-
+    def topo(self):
         # topological order all of the children in the graph
         topo = []
         visited = set()
@@ -63,10 +75,12 @@ class Value:
                     build_topo(child)
                 topo.append(v)
         build_topo(self)
+        return topo
 
+    def backward(self, reverse_topo):
         # go one variable at a time and apply the chain rule to get its gradient
         self.grad = 1
-        for v in reversed(topo):
+        for v in reverse_topo:
             v._backward()
 
     def __neg__(self): # -self
